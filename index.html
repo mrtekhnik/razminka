@@ -95,6 +95,28 @@ h2{font-size:21px;margin:6px 4px 12px}
 .ct-k button.fn{font-size:17px;color:#3b4656}
 .ct-k button.press{background:#bcd3f7}
 @media(max-height:700px){.ct-k button{min-height:48px}.ct-q{font-size:32px}}
+/* судоку */
+.sd{position:absolute;inset:0;display:flex;flex-direction:column}
+.sd-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:6px}
+.sd-g{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);border:2px solid #1b2430;background:#fff}
+.sd-c{border-right:1px solid #c5ccd6;border-bottom:1px solid #c5ccd6;font-size:inherit;font-weight:500;color:var(--accent);display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation;min-width:0;min-height:0}
+.sd-c.c2,.sd-c.c5{border-right:2px solid #1b2430}.sd-c.c8{border-right:0}
+.sd-c.r2,.sd-c.r5{border-bottom:2px solid #1b2430}.sd-c.r8{border-bottom:0}
+.sd-c.giv{color:var(--ink);font-weight:700}
+.sd-c.area{background:#eef3fa}.sd-c.same{background:#dbe7fb}.sd-c.sel{background:#b9d0f6}
+.sd-c.wrong{color:var(--danger)}
+.nt{display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%;font-size:.46em;line-height:1;color:#3b4656;font-weight:600}
+.nt i{font-style:normal;display:flex;align-items:center;justify-content:center}
+.sd-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:6px 8px 8px}
+.sd-pad button{min-height:50px;border-radius:12px;background:#eef2f7;font-size:24px;font-weight:600;touch-action:manipulation}
+.sd-pad .fn{font-size:17px;color:#3b4656}
+.sd-pad .wide{grid-column:span 5;min-height:44px}
+.sd-pad .on{background:var(--accent);color:#fff}
+.sd-pad button.press{background:#bcd3f7}
+/* пятнашки */
+.pz{position:relative;background:#e3e8ef;border-radius:12px}
+.pz-t{position:absolute;left:2px;top:2px;border-radius:10px;background:#3b5b8a;color:#fff;font-weight:700;font-size:inherit;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.pz-t.press{background:#5d82bd}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -139,7 +161,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.8',APP_DATE='17.11.2026';
+const APP_VERSION='0.9',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -527,6 +549,170 @@ Registry.register((()=>{
       root.appendChild(box);ctx.startTimer();next();
       if(ctx.train)tick=setInterval(()=>{if(!c)return;info();if(c.elapsed()>=DUR)end();},200);},
     stop(){clearInterval(tick);clearTimeout(msgT);if(box)box.removeEventListener('pointerdown',down);removeEventListener('keydown',onKey);box=null;c=null;root=null;}
+  };
+})());
+
+/* --- Судоку (Логика). Классическое 9×9. Головоломка создаётся заново при каждом запуске,
+       у неё всегда одно решение. Очки = время в секундах (меньше — лучше), ошибки — отдельно. --- */
+Registry.register((()=>{
+  const GIVENS={1:38,2:32,3:28,4:25};
+  const RC=[...Array(81)].map((_,i)=>[Math.floor(i/9),i%9,Math.floor(i/27)*3+Math.floor(i%9/3)]);
+  const bits=m=>{const r=[];for(let d=1;d<=9;d++)if(m&(1<<d))r.push(d);return r;};
+  // перебор с выбором клетки с наименьшим числом вариантов; считает решения до limit
+  function solve(g,limit,rand){
+    const R=new Array(9).fill(0),C=new Array(9).fill(0),B=new Array(9).fill(0);let count=0,first=null;
+    for(let i=0;i<81;i++)if(g[i]){const[r,c,b]=RC[i],m=1<<g[i];R[r]|=m;C[c]|=m;B[b]|=m;}
+    (function rec(){
+      let best=-1,bm=0,bn=10;
+      for(let i=0;i<81;i++)if(!g[i]){const[r,c,b]=RC[i],m=~(R[r]|C[c]|B[b])&0x3FE;let n=0;for(let x=m;x;x&=x-1)n++;
+        if(n<bn){best=i;bm=m;bn=n;if(n<=1)break;}}
+      if(best<0){count++;if(!first)first=g.slice();return;}
+      if(!bn)return;
+      const ds=bits(bm);if(rand)for(let i=ds.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ds[i],ds[j]]=[ds[j],ds[i]];}
+      const[r,c,b]=RC[best];
+      for(const d of ds){const m=1<<d;g[best]=d;R[r]|=m;C[c]|=m;B[b]|=m;rec();R[r]&=~m;C[c]&=~m;B[b]&=~m;g[best]=0;if(count>=limit)return;}
+    })();
+    return{count,first};}
+  function generate(level){
+    const sol=solve(new Array(81).fill(0),1,true).first;
+    const puz=sol.slice(),order=[...Array(81).keys()];
+    for(let i=80;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+    let givens=81;const target=GIVENS[level]||32;
+    for(const i of order){if(givens<=target)break;const v=puz[i];puz[i]=0;
+      if(solve(puz.slice(),2,false).count!==1)puz[i]=v;else givens--;}
+    return{puz,sol,givens};}
+
+  let c=null,root=null,box=null,gridEl=null,cells=[],puz,sol,val,notes,sel=-1,noteMode=false,errs=0,onRes=null;
+  function layout(){
+    if(!box)return;const pad=box.querySelector('.sd-pad'),W=root.clientWidth-12,H=root.clientHeight-pad.offsetHeight-18;
+    const side=Math.max(200,Math.floor(Math.min(W,H)/9)*9);
+    gridEl.style.width=gridEl.style.height=side+'px';gridEl.style.fontSize=Math.round(side/9*0.58)+'px';}
+  function left(){let n=0;for(let i=0;i<81;i++)if(val[i]!==sol[i])n++;return n;}
+  function info(){c.setInfo(`Осталось клеток: ${left()}`+(c.train&&c.effects.errors&&errs?` · ошибок: ${errs}`:''));}
+  function draw(){
+    const sv=sel>=0?val[sel]:0;
+    for(let i=0;i<81;i++){
+      const el=cells[i],v=val[i];
+      el.classList.toggle('sel',i===sel);
+      el.classList.toggle('area',!!(c.effects.area&&sel>=0&&i!==sel&&(RC[i][0]===RC[sel][0]||RC[i][1]===RC[sel][1]||RC[i][2]===RC[sel][2])));
+      el.classList.toggle('same',!!(c.effects.same&&sv&&v===sv&&i!==sel));
+      el.classList.toggle('wrong',!!(c.effects.errors&&v&&!puz[i]&&v!==sol[i]));
+      if(v)el.textContent=v;
+      else if(notes[i])el.innerHTML='<span class="nt">'+[1,2,3,4,5,6,7,8,9].map(d=>`<i>${notes[i]&(1<<d)?d:''}</i>`).join('')+'</span>';
+      else el.textContent='';}
+    box.querySelector('[data-k="note"]').classList.toggle('on',noteMode);}
+  function put(d){
+    if(sel<0||puz[sel])return;
+    if(d===0){val[sel]=0;notes[sel]=0;draw();info();return;}
+    if(noteMode){if(!val[sel]){notes[sel]^=1<<d;draw();}return;}
+    if(val[sel]===d)return;
+    val[sel]=d;notes[sel]=0;
+    if(d!==sol[sel])errs++;
+    else for(let i=0;i<81;i++)if(RC[i][0]===RC[sel][0]||RC[i][1]===RC[sel][1]||RC[i][2]===RC[sel][2])notes[i]&=~(1<<d); // убрать заметку с этой цифрой рядом
+    draw();info();
+    if(!left()){const t=c.elapsed();c.finish({score:t/1000,timeMs:t,extra:{errors:errs,givens:puz.filter(Boolean).length}});}}
+  function down(e){
+    if(!c)return;
+    const cell=e.target.closest('.sd-c'),k=e.target.closest('[data-k]');
+    if(cell){e.preventDefault();sel=+cell.dataset.i;draw();return;}
+    if(k){e.preventDefault();if(c.effects.press)fxFlash(k,'press',120);
+      if(k.dataset.k==='note'){noteMode=!noteMode;draw();}else put(+k.dataset.k);}}
+  function onKey(e){
+    if(!c)return;
+    if(/^[1-9]$/.test(e.key)){e.preventDefault();put(+e.key);}
+    else if(e.key==='Backspace'||e.key==='Delete'||e.key==='0'){e.preventDefault();put(0);}
+    else if(e.key.startsWith('Arrow')){e.preventDefault();if(sel<0)sel=0;else{const[r,cc]=RC[sel];
+      sel=e.key==='ArrowUp'?((r+8)%9)*9+cc:e.key==='ArrowDown'?((r+1)%9)*9+cc:e.key==='ArrowLeft'?r*9+(cc+8)%9:r*9+(cc+1)%9;}draw();}
+    else if(e.key==='n'||e.key==='т'){noteMode=!noteMode;draw();}}
+  return{
+    id:'sudoku',title:'Судоку',section:'logic',
+    desc:'Заполните клетки цифрами 1–9 так, чтобы в каждой строке, столбце и квадрате 3×3 все цифры были разными. Нажмите клетку, затем цифру. «Заметки» — мелкие пометки для себя.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'38 открытых цифр'},{id:'2',name:'Средний',hint:'32 открытые цифры'},{id:'3',name:'Сложный',hint:'28 открытых цифр'},{id:'4',name:'Эксперт',hint:'около 25 открытых цифр'}],
+    score:{unit:'с',better:'low'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая кнопка цифры на мгновение подсвечивается'},
+             {id:'area',name:'Подсветка строки, столбца и квадрата',hint:'Для выбранной клетки'},
+             {id:'same',name:'Подсветка одинаковых цифр',hint:'Все такие же цифры, как в выбранной клетке'},
+             {id:'errors',name:'Подсветка ошибок',hint:'Неверная цифра показывается красным (это подсказка)'}],
+    summary:r=>r.extra?`Ошибок: <b>${r.extra.errors}</b> · открытых цифр: ${r.extra.givens}`:'',
+    _generate:generate,_solve:solve,
+    start(ctx){
+      c=ctx;root=ctx.root;sel=-1;noteMode=false;errs=0;
+      const g=generate(ctx.level.id);puz=g.puz;sol=g.sol;val=puz.slice();notes=new Array(81).fill(0);
+      box=document.createElement('div');box.className='sd';
+      box.innerHTML=`<div class="sd-wrap"><div class="sd-g">${puz.map((v,i)=>`<button class="sd-c${v?' giv':''} r${RC[i][0]} c${RC[i][1]}" data-i="${i}"></button>`).join('')}</div></div>
+        <div class="sd-pad">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-k="${d}">${d}</button>`).join('')}<button data-k="0" class="fn" aria-label="Стереть">⌫</button>
+        <button data-k="note" class="fn wide">Заметки</button></div>`;
+      gridEl=box.querySelector('.sd-g');cells=[...box.querySelectorAll('.sd-c')];
+      box.addEventListener('pointerdown',down);addEventListener('keydown',onKey);
+      root.appendChild(box);layout();onRes=()=>layout();addEventListener('resize',onRes);
+      draw();info();ctx.startTimer();},
+    stop(){if(box)box.removeEventListener('pointerdown',down);removeEventListener('keydown',onKey);if(onRes)removeEventListener('resize',onRes);
+      box=null;c=null;root=null;cells=[];onRes=null;}
+  };
+})());
+
+/* --- Пятнашки (Пространственное мышление). Расставить плитки по порядку.
+       Нажатие на плитку в одной строке или столбце с пустым местом сдвигает её (и соседние) к нему.
+       Очки = время в секундах (меньше — лучше), ходы — отдельно. --- */
+Registry.register((()=>{
+  const SHUF={1:[3,60],2:[4,200],3:[5,400]};
+  let c=null,root=null,board=null,n=0,t=[],tiles=[],moves=0,cell=0,onRes=null;
+  // t[pos] = номер плитки (0 — пустое место)
+  function shuffle(steps){
+    t=[...Array(n*n).keys()].map(i=>(i+1)%(n*n));let e=n*n-1,prev=-1;
+    for(let s=0;s<steps||solved();s++){
+      const r=Math.floor(e/n),cc=e%n,opts=[];
+      if(r>0)opts.push(e-n);if(r<n-1)opts.push(e+n);if(cc>0)opts.push(e-1);if(cc<n-1)opts.push(e+1);
+      const ch=opts.filter(o=>o!==prev);const o=ch[Math.floor(Math.random()*ch.length)];
+      t[e]=t[o];t[o]=0;prev=e;e=o;}}
+  function solved(){for(let i=0;i<n*n-1;i++)if(t[i]!==i+1)return false;return true;}
+  function place(anim){
+    for(let p=0;p<n*n;p++){const v=t[p];if(!v)continue;const el=tiles[v];
+      el.style.transition=anim?'transform .1s ease-out':'none';
+      el.style.transform=`translate(${(p%n)*cell}px,${Math.floor(p/n)*cell}px)`;el.dataset.pos=p;}}
+  function layout(){
+    if(!board)return;const side=Math.floor(Math.min(root.clientWidth,root.clientHeight)-16);cell=Math.floor(side/n);
+    board.style.width=board.style.height=cell*n+'px';board.style.fontSize=Math.round(cell*0.42)+'px';
+    tiles.forEach(el=>{if(el){el.style.width=el.style.height=(cell-4)+'px';}});place(false);}
+  function info(){c.setInfo(c.train?`Ходов: ${moves}`:'Соберите по порядку');}
+  function moveFrom(p){
+    const e=t.indexOf(0),er=Math.floor(e/n),ec=e%n,pr=Math.floor(p/n),pc=p%n;
+    if(p===e||(er!==pr&&ec!==pc))return false;
+    const step=er===pr?(pc>ec?1:-1):(pr>er?n:-n);
+    for(let q=e;q!==p;q+=step){t[q]=t[q+step];t[q+step]=0;moves++;}
+    place(!!c.effects.slide);info();
+    if(solved()){const tm=c.elapsed();c.finish({score:tm/1000,timeMs:tm,extra:{moves,size:n}});}
+    return true;}
+  function down(e){
+    const el=e.target.closest('.pz-t');if(!el||!c)return;e.preventDefault();
+    if(c.effects.press)fxFlash(el,'press',150);
+    moveFrom(+el.dataset.pos);}
+  function onKey(e){
+    if(!c)return;const em=t.indexOf(0),r=Math.floor(em/n),cc=em%n;let p=-1;
+    // стрелка двигает плитку в сторону пустого места
+    if(e.key==='ArrowUp'&&r<n-1)p=em+n;else if(e.key==='ArrowDown'&&r>0)p=em-n;
+    else if(e.key==='ArrowLeft'&&cc<n-1)p=em+1;else if(e.key==='ArrowRight'&&cc>0)p=em-1;
+    if(p>=0){e.preventDefault();moveFrom(p);}}
+  return{
+    id:'fifteen',title:'Пятнашки',section:'space',
+    desc:'Расставьте плитки по порядку слева направо и сверху вниз, пустое место — в правом нижнем углу. Нажмите плитку рядом с пустым местом (или в том же ряду), чтобы сдвинуть её.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'3×3, плитки 1–8'},{id:'2',name:'Классический',hint:'4×4, плитки 1–15'},{id:'3',name:'Сложный',hint:'5×5, плитки 1–24'}],
+    score:{unit:'с',better:'low'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая плитка на мгновение подсвечивается'},
+             {id:'slide',name:'Плавный сдвиг',hint:'Плитки сдвигаются коротким движением, а не мгновенно'}],
+    summary:r=>r.extra?`Ходов: <b>${r.extra.moves}</b>`:'',
+    start(ctx){
+      c=ctx;root=ctx.root;const[sz,steps]=SHUF[ctx.level.id]||SHUF[2];n=sz;moves=0;shuffle(steps);
+      root.classList.add('center');
+      board=document.createElement('div');board.className='pz';tiles=[null];
+      for(let v=1;v<n*n;v++){const el=document.createElement('button');el.className='pz-t';el.dataset.n=v;el.textContent=v;board.appendChild(el);tiles.push(el);}
+      board.addEventListener('pointerdown',down);addEventListener('keydown',onKey);
+      root.appendChild(board);layout();onRes=()=>layout();addEventListener('resize',onRes);
+      info();ctx.startTimer();},
+    stop(){if(board)board.removeEventListener('pointerdown',down);removeEventListener('keydown',onKey);if(onRes)removeEventListener('resize',onRes);
+      if(root)root.classList.remove('center');board=null;tiles=[];c=null;root=null;onRes=null;}
   };
 })());
 
