@@ -54,6 +54,15 @@ h2{font-size:21px;margin:6px 4px 12px}
 .strip{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:18px;min-height:52px}
 .strip .tm{font-variant-numeric:tabular-nums;font-weight:600}
 .exroot{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;min-height:300px;height:calc(100vh - 290px);height:calc(100dvh - 290px);overflow:hidden;margin-bottom:10px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* таблица Шульте */
+.exroot.center{display:flex;align-items:center;justify-content:center}
+.sch{display:grid;gap:4px}
+.sch-c{background:#eef2f7;border-radius:8px;font-weight:600;color:var(--ink);font-size:inherit;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.sch-c.bad{background:#f6c9c9}
+/* время реакции */
+.rt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:24px;font-weight:600;color:#fff;touch-action:manipulation}
+.rt b{font-size:52px}
+.rt.wait{background:#5b6675}.rt.go{background:#1a8a4a}.rt.red{background:#d93a3a}.rt.bad{background:#b8620b}.rt.shown{background:#1f6feb}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -98,7 +107,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.2',APP_DATE='17.11.2026';
+const APP_VERSION='0.3',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -252,33 +261,93 @@ const Stats=(()=>{
    5. УПРАЖНЕНИЯ
    ===================================================================== */
 
-/* --- Тестовое упражнение-заглушка (этап 0): проверка пути «запуск → результат → статистика».
-       Будет удалено, когда появятся настоящие упражнения. --- */
+/* --- Таблица Шульте (Внимание). Найти числа по порядку от 1 до N.
+       Очки = время в секундах (меньше — лучше), ошибки записываются отдельно. --- */
 Registry.register((()=>{
-  let root=null,ctx=null,btn=null,hits=0,total=0;
-  function place(){
-    const w=root.clientWidth,h=root.clientHeight,s=84;
-    btn.style.left=Math.round(8+Math.random()*Math.max(0,w-s-16))+'px';
-    btn.style.top=Math.round(8+Math.random()*Math.max(0,h-s-16))+'px';}
-  function hit(e){
-    e.preventDefault();if(!ctx)return;
-    hits++;ctx.setInfo(`Попаданий: ${hits} из ${total}`);
-    if(hits>=total){const t=ctx.elapsed();ctx.finish({score:total*60000/t,timeMs:t,extra:{hits}});return;}
-    place();}
+  let c=null,root=null,grid=null,size=0,next=1,errs=0,onRes=null;
+  function layout(){
+    if(!grid)return;
+    const side=Math.max(160,Math.min(root.clientWidth,root.clientHeight)-16);
+    grid.style.width=grid.style.height=side+'px';
+    grid.style.fontSize=Math.round(side/size*0.42)+'px';}
+  function info(){c.setInfo(`Найдите: ${next}`+(c.train&&errs?` · ошибок: ${errs}`:''));}
+  function down(e){
+    const cell=e.target.closest('.sch-c');if(!cell||!c)return;
+    e.preventDefault();
+    if(+cell.dataset.n===next){
+      next++;
+      if(next>size*size){const t=c.elapsed();c.finish({score:t/1000,timeMs:t,extra:{errors:errs,size}});return;}
+      info();
+    }else{
+      errs++;info();
+      cell.classList.add('bad');setTimeout(()=>cell.classList.remove('bad'),250);}}
   return{
-    id:'stub',title:'Проверка (тест)',section:'reaction',test:true,
-    desc:'Временное упражнение для проверки приложения: нажимайте на круг, пока не наберёте нужное число попаданий.',
+    id:'schulte',title:'Таблица Шульте',section:'attention',
+    desc:'Найдите и нажмите числа по порядку: 1, 2, 3… Смотрите в центр таблицы и старайтесь охватить её взглядом целиком.',
     modes:['train','rest'],
-    levels:[{id:'1',name:'Лёгкий',hint:'5 попаданий'},{id:'2',name:'Средний',hint:'10 попаданий'},{id:'3',name:'Сложный',hint:'15 попаданий'}],
-    score:{unit:'попаданий в минуту',better:'high'},
-    start(c){
-      ctx=c;root=c.root;hits=0;total={1:5,2:10,3:15}[c.level.id]||5;
-      btn=document.createElement('button');btn.id='stubTarget';btn.setAttribute('aria-label','Цель');
-      btn.style.cssText='position:absolute;width:84px;height:84px;border-radius:50%;background:#d93a3a;box-shadow:0 2px 6px rgba(0,0,0,.3)';
-      btn.addEventListener('pointerdown',hit);
-      root.appendChild(btn);c.setInfo(`Попаданий: 0 из ${total}`);
-      place();c.startTimer();},
-    stop(){if(btn)btn.removeEventListener('pointerdown',hit);btn=null;ctx=null;root=null;}
+    levels:[{id:'1',name:'Лёгкий',hint:'3×3, числа 1–9'},{id:'2',name:'Средний',hint:'4×4, числа 1–16'},{id:'3',name:'Классический',hint:'5×5, числа 1–25'},{id:'4',name:'Сложный',hint:'6×6, числа 1–36'}],
+    score:{unit:'с',better:'low'},
+    summary:r=>r.extra&&r.extra.errors!=null?`Ошибок: <b>${r.extra.errors}</b>`:'',
+    start(ctx){
+      c=ctx;root=ctx.root;size={1:3,2:4,3:5,4:6}[ctx.level.id]||5;next=1;errs=0;
+      const nums=[];for(let i=1;i<=size*size;i++)nums.push(i);
+      for(let i=nums.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}
+      root.classList.add('center');
+      grid=document.createElement('div');grid.className='sch';grid.style.gridTemplateColumns=`repeat(${size},1fr)`;
+      grid.innerHTML=nums.map(n=>`<button class="sch-c" data-n="${n}">${n}</button>`).join('');
+      grid.addEventListener('pointerdown',down);
+      root.appendChild(grid);layout();
+      onRes=()=>layout();addEventListener('resize',onRes);
+      info();ctx.startTimer();},
+    stop(){if(grid)grid.removeEventListener('pointerdown',down);if(onRes)removeEventListener('resize',onRes);
+      if(root)root.classList.remove('center');grid=null;c=null;root=null;onRes=null;}
+  };
+})());
+
+/* --- Время реакции (Реакция). Нажать, как только поле стало зелёным.
+       Очки = среднее время реакции в мс (меньше — лучше).
+       Уровень «Выбор»: иногда поле красное — его нажимать нельзя. --- */
+Registry.register((()=>{
+  let c=null,box=null,timer=0,raf=0,state='',tGo=0,times=[],falses=0,misses=0,total=0,choice=false;
+  function set(cls,html){box.className='rt '+cls;box.innerHTML=html;}
+  function info(){c.setInfo(`Попытка ${Math.min(times.length+1,total)} из ${total}`);}
+  function later(fn,ms){clearTimeout(timer);timer=setTimeout(()=>{if(c)fn();},ms);}
+  function next(){
+    if(times.length>=total){finish();return;}
+    info();state='wait';set('wait','Ждите зелёный…');
+    later(()=>{
+      if(choice&&Math.random()<0.3){
+        state='red';set('red','Красный — не нажимайте!');
+        later(()=>{state='pause';set('wait','Верно, удержались');later(next,900);},1300);
+      }else{
+        set('go','Жмите!');
+        // отсчёт — с момента, когда зелёный реально выводится на экран
+        raf=requestAnimationFrame(()=>{if(!c)return;state='go';tGo=performance.now();});
+      }
+    },1200+Math.random()*2800);}
+  function down(e){
+    if(!c)return;e.preventDefault();
+    const now=performance.now();
+    if(state==='wait'){falses++;state='pause';set('bad','Рано! Дождитесь зелёного');later(next,1300);}
+    else if(state==='go'){const ms=Math.max(0,now-tGo);times.push(ms);state='pause';
+      set('shown',c.train?`<b>${Math.round(ms)}</b> мс`:'Есть!');later(next,1000);}
+    else if(state==='red'){misses++;state='pause';set('bad','Это был красный');later(next,1300);}}
+  function finish(){
+    const avg=times.reduce((a,b)=>a+b,0)/times.length;
+    c.finish({score:Math.round(avg),extra:{attempts:times.map(Math.round),best:Math.round(Math.min(...times)),falseStarts:falses,errors:misses}});}
+  return{
+    id:'reaction',title:'Время реакции',section:'reaction',
+    desc:'Поле серое — ждите. Как только станет зелёным, нажмите на него как можно быстрее. Нажатие раньше времени — фальстарт.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'3 попытки'},{id:'2',name:'Средний',hint:'5 попыток'},{id:'3',name:'Выбор',hint:'5 попыток, на красный не нажимать'}],
+    score:{unit:'мс, среднее',short:'мс',better:'low'},
+    summary:r=>r.extra?[`Лучшая попытка: <b>${r.extra.best} мс</b>`,`Фальстартов: <b>${r.extra.falseStarts}</b>`,r.level==='3'?`Нажатий на красный: <b>${r.extra.errors}</b>`:''].filter(Boolean).join('<br>'):'',
+    start(ctx){
+      c=ctx;times=[];falses=0;misses=0;total=ctx.level.id==='1'?3:5;choice=ctx.level.id==='3';
+      box=document.createElement('div');box.id='rtBox';
+      box.addEventListener('pointerdown',down);
+      ctx.root.appendChild(box);ctx.startTimer();next();},
+    stop(){clearTimeout(timer);cancelAnimationFrame(raf);if(box)box.removeEventListener('pointerdown',down);box=null;c=null;state='';}
   };
 })());
 
@@ -387,8 +456,9 @@ function showResult(mod,mode,level,rec,saved){
     const prev=Stats.best(mod.id,level.id,rec.id);
     const isRec=rec.score!=null&&(!prev||(mod.score.better==='low'?rec.score<prev.score:rec.score>prev.score));
     body=`<div class="sc">${fmtNum(rec.score)}</div><div class="un">${esc(mod.score.unit)}</div>
-      <div style="margin-top:10px">Время: <b>${fmtTime(rec.timeMs)}</b> · уровень: ${esc(level.name)}</div>
+      <div style="margin-top:10px">${mod.score.unit==='с'?'':`Длительность: <b>${fmtTime(rec.timeMs)}</b> · `}уровень: ${esc(level.name)}</div>
       ${isRec?`<div class="rec">${prev?'Новый личный рекорд!':'Первый результат на этом уровне'}</div>`:`<div class="muted small" style="margin-top:8px">Лучший: ${fmtNum(prev.score)}</div>`}`;
+    if(mod.summary){const x=mod.summary(rec);if(x)body+=`<div class="small" style="margin-top:10px">${x}</div>`;}
   }else body=`<div class="sc" style="color:var(--ok)">Готово</div><div class="un">Режим «Отдых»: занятие засчитано, без очков и времени</div>`;
   view.innerHTML=`<h2>${esc(mod.title)}</h2><div class="card res">${body}${saved?'':'<div class="muted small" style="margin-top:8px">Результат не сохранён</div>'}</div>
     <button class="big" id="againBtn">Ещё раз</button>
@@ -413,7 +483,7 @@ function renderStats(){
     <div class="lbl">Последние занятия</div>
     ${rs.length?`<div class="card"><table class="st">${rs.map(r=>{const m=Registry.get(r.ex),lv=m&&m.levels.find(l=>l.id===r.level);
       return `<tr><td>${esc(m?m.title:r.ex)}<div class="muted small">${fmtDate(r.date)} · ${esc(lv?lv.name:'ур. '+r.level)}</div></td>
-        <td style="text-align:right">${r.mode==='rest'?'<span class="tag rest">Отдых</span>':`<b>${fmtNum(r.score)}</b><div class="muted small">${fmtTime(r.timeMs)}</div>`}</td></tr>`;}).join('')}</table></div>`
+        <td style="text-align:right">${r.mode==='rest'?'<span class="tag rest">Отдых</span>':`<b>${fmtNum(r.score)}</b> <span class="small">${esc(m?(m.score.short||m.score.unit):'')}</span><div class="muted small">${fmtTime(r.timeMs)}</div>`}</td></tr>`;}).join('')}</table></div>`
       :'<div class="card muted">Пока нет занятий.</div>'}
     <div class="small muted" style="margin:8px 4px">Динамика и лучшие результаты по навыкам появятся на этапе 2.</div>`;}
 
@@ -441,7 +511,7 @@ function parseImport(text){
   if(!Array.isArray(f.results))return{error:'В файле нет списка занятий.'};
   let d={schema:sch,results:f.results,settings:f.settings||{}};
   try{d=Store.migrate(d);}catch(e){return{error:'Не удалось перевести файл в текущий формат.'};}
-  const ok=d.results.filter(Stats.valid);
+  const ok=d.results.filter(r=>Stats.valid(r)&&r.ex!=='stub');
   return{results:ok,settings:d.settings,skipped:d.results.length-ok.length};}
 
 async function importStats(text){
@@ -503,6 +573,8 @@ $('#updBtn').onclick=()=>{stopRunning();const w=swReg&&swReg.waiting;if(w)w.post
    ЗАПУСК
    ===================================================================== */
 Store.load();
+// результаты тестовой заглушки этапа 0 больше не нужны
+if(!Store.readOnly&&Store.data.results.some(r=>r.ex==='stub')){Store.data.results=Store.data.results.filter(r=>r.ex!=='stub');Store.save();}
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 {const st=history.state;const start=st&&!st.modal?st:{s:'home'};history.replaceState(start,'');render(start);}
 </script>
