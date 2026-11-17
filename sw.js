@@ -2,7 +2,7 @@
 // ВАЖНО: при каждом обновлении приложения увеличивать VERSION вместе с APP_VERSION в index.html —
 // по этому изменению телефон узнаёт, что вышла новая версия, и показывает кнопку «Обновить».
 // Удаляются только свои старые кэши (razminka-*): на домене mrtekhnik.github.io живут и другие приложения.
-const VERSION = '0.4';
+const VERSION = '0.5';
 const CACHE = 'razminka-' + VERSION;
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png'];
 
