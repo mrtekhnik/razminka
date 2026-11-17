@@ -117,6 +117,16 @@ h2{font-size:21px;margin:6px 4px 12px}
 .pz{position:relative;background:#e3e8ef;border-radius:12px}
 .pz-t{position:absolute;left:2px;top:2px;border-radius:10px;background:#3b5b8a;color:#fff;font-weight:700;font-size:inherit;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
 .pz-t.press{background:#5d82bd}
+/* дыхание */
+.br{position:absolute;inset:0;display:flex;flex-direction:column;padding:12px}
+.br-mid{flex:1;position:relative;display:flex;align-items:center;justify-content:center;min-height:200px}
+.br-c{position:absolute;width:min(80%,300px);aspect-ratio:1;border-radius:50%;background:#d6ecdc;transform:scale(.45);transition:transform .1s linear}
+.br-t{position:relative;text-align:center}
+.br-ph{font-size:38px;font-weight:700;color:#1a6b3a}
+.br-s{font-size:64px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.br-bar{height:12px;border-radius:6px;background:#e3e8ef;overflow:hidden;margin:10px 0}
+.br-bar i{display:block;height:100%;width:0;background:#3a9a52}
+.br .big{margin:0}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -161,7 +171,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.9',APP_DATE='17.11.2026';
+const APP_VERSION='0.10',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -217,13 +227,14 @@ const Store=(()=>{
   // миграции: MIGRATIONS[n] переводит данные из версии n в n+1
   const MIGRATIONS={};
   let data=null,readOnly=false;
-  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{},effects:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
+  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{},effects:{},saved:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
   function normalize(d){
     const f=fresh();
     d.results=Array.isArray(d.results)?d.results:[];
     d.settings=Object.assign(f.settings,d.settings&&typeof d.settings==='object'?d.settings:{});
     if(!d.settings.levels||typeof d.settings.levels!=='object')d.settings.levels={};
     if(!d.settings.effects||typeof d.settings.effects!=='object')d.settings.effects={};
+    if(!d.settings.saved||typeof d.settings.saved!=='object')d.settings.saved={};
     for(const k in d.settings.effects){const v=d.settings.effects[k];
       if(typeof v==='boolean')d.settings.effects[k]=v?{error:true}:{};          // формат версии 0.4
       else if(!v||typeof v!=='object')d.settings.effects[k]={};}
@@ -263,6 +274,8 @@ const Store=(()=>{
      score     — {unit:'…', better:'high'|'low'} — что такое очки и что лучше
      effects   — (необязательно) визуальные эффекты игры: [{id:'press',name:'…',hint:'…'}, …];
                  у каждого свой переключатель, по умолчанию выключен; в ctx.effects.<id> — включён ли
+     save()    — (необязательно) состояние партии для автосохранения; при «Продолжить» оно приходит в ctx.resume
+     levelLabel— (необязательно) подпись вместо «Уровень сложности»
      ownTimer  — (необязательно) true: упражнение само показывает время, общий секундомер скрыт
      start(ctx)— запуск; ctx: root, mode, level, train, setInfo(), startTimer(), elapsed(), finish({score,timeMs,extra})
      stop()    — остановка (убрать таймеры и обработчики)
@@ -636,9 +649,12 @@ Registry.register((()=>{
              {id:'errors',name:'Подсветка ошибок',hint:'Неверная цифра показывается красным (это подсказка)'}],
     summary:r=>r.extra?`Ошибок: <b>${r.extra.errors}</b> · открытых цифр: ${r.extra.givens}`:'',
     _generate:generate,_solve:solve,
+    save:()=>puz?{puz,sol,val:val.slice(),notes:notes.slice(),errs}:null,
     start(ctx){
       c=ctx;root=ctx.root;sel=-1;noteMode=false;errs=0;
-      const g=generate(ctx.level.id);puz=g.puz;sol=g.sol;val=puz.slice();notes=new Array(81).fill(0);
+      const R=ctx.resume,ok81=a=>Array.isArray(a)&&a.length===81&&a.every(x=>Number.isInteger(x));
+      if(R&&ok81(R.puz)&&ok81(R.sol)&&ok81(R.val)&&ok81(R.notes)){puz=R.puz;sol=R.sol;val=R.val;notes=R.notes;errs=R.errs|0;}
+      else{const g=generate(ctx.level.id);puz=g.puz;sol=g.sol;val=puz.slice();notes=new Array(81).fill(0);}
       box=document.createElement('div');box.className='sd';
       box.innerHTML=`<div class="sd-wrap"><div class="sd-g">${puz.map((v,i)=>`<button class="sd-c${v?' giv':''} r${RC[i][0]} c${RC[i][1]}" data-i="${i}"></button>`).join('')}</div></div>
         <div class="sd-pad">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-k="${d}">${d}</button>`).join('')}<button data-k="0" class="fn" aria-label="Стереть">⌫</button>
@@ -716,6 +732,56 @@ Registry.register((()=>{
   };
 })());
 
+/* --- Дыхание по ритму (Отдых). Подсказывает фазы: вдох, задержка, выдох.
+       Тренировка: 3 минуты с обратным отсчётом, очки = число полных циклов.
+       Отдых: без таймера, сколько хочется — кнопка «Достаточно». Экран не гаснет во время упражнения. --- */
+Registry.register((()=>{
+  const PAT={1:[['Вдох',4],['Выдох',4]],2:[['Вдох',4],['Задержка',4],['Выдох',4],['Задержка',4]],3:[['Вдох',4],['Задержка',7],['Выдох',8]],4:[['Вдох',5],['Выдох',5]]};
+  const DUR=180000;
+  let c=null,box=null,tick=0,pat=null,cyc=0,lastPh=-1,wake=null,ended=false;
+  function wakeOn(){try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{if(c)wake=w;else w.release();}).catch(()=>{});}catch(e){}}
+  function onVis(){if(document.visibilityState==='visible'&&c&&!wake)wakeOn();}
+  function update(){
+    if(!c||ended)return;
+    const cycMs=pat.reduce((a,p)=>a+p[1],0)*1000,el=c.elapsed(),inC=el%cycMs;cyc=Math.floor(el/cycMs);
+    if(c.train&&el>=DUR&&inC<200){end();return;}   // заканчиваем на границе цикла после 3 минут
+    let acc=0,ph=0;while(inC>=acc+pat[ph][1]*1000){acc+=pat[ph][1]*1000;ph++;}
+    const into=inC-acc,len=pat[ph][1]*1000,name=pat[ph][0];
+    const key=cyc*10+ph;
+    if(key!==lastPh){lastPh=key;if(c.effects.vibro&&navigator.vibrate)navigator.vibrate(name==='Задержка'?[30,60,30]:60);}
+    box.querySelector('.br-ph').textContent=name;
+    box.querySelector('.br-s').textContent=Math.ceil((len-into)/1000);
+    box.querySelector('.br-bar i').style.width=Math.min(100,Math.floor(into/1000+1)/pat[ph][1]*100)+'%';
+    if(c.effects.circle){
+      let k;if(name==='Вдох')k=into/len;else if(name==='Выдох')k=1-into/len;else k=ph>0&&pat[ph-1][0]==='Вдох'?1:0;
+      box.querySelector('.br-c').style.transform=`scale(${(0.45+0.55*k).toFixed(3)})`;}
+    if(c.train){const left=Math.max(0,DUR-el);c.setInfo(`Осталось: ${Math.floor(left/60000)}:${pad2(Math.ceil(left%60000/1000)%60)} · циклов: ${cyc}`);}
+    else c.setInfo('Дышите спокойно');}
+  function end(){if(ended)return;ended=true;clearInterval(tick);
+    c.finish({score:cyc,timeMs:c.train?Math.round(c.elapsed()):undefined,extra:{cycles:cyc}});}
+  return{
+    id:'breath',title:'Дыхание по ритму',section:'rest',ownTimer:true,levelLabel:'Ритм',
+    desc:'Дышите по подсказкам на экране: вдох, задержка, выдох. Вдох — носом, выдох — спокойно и полностью. Тренировка — 3 минуты, отдых — сколько захочется.',
+    modes:['rest','train'],
+    levels:[{id:'1',name:'Ровное',hint:'вдох 4 · выдох 4'},{id:'2',name:'Квадрат',hint:'вдох 4 · пауза 4 · выдох 4 · пауза 4'},
+            {id:'3',name:'Успокаивающее',hint:'вдох 4 · пауза 7 · выдох 8'},{id:'4',name:'Медленное',hint:'вдох 5 · выдох 5'}],
+    score:{unit:'циклов за 3 минуты',short:'цикл.',better:'high'},
+    effects:[{id:'circle',name:'Дышащий круг',hint:'Круг плавно растёт на вдохе и сжимается на выдохе'},
+             {id:'vibro',name:'Вибрация при смене фазы',hint:'Можно дышать с закрытыми глазами'}],
+    summary:r=>r.extra?`Полных циклов: <b>${r.extra.cycles}</b>`:'',
+    start(ctx){
+      c=ctx;pat=PAT[ctx.level.id]||PAT[1];cyc=0;lastPh=-1;ended=false;
+      box=document.createElement('div');box.className='br';
+      box.innerHTML=`<div class="br-mid">${ctx.effects.circle?'<div class="br-c"></div>':''}<div class="br-t"><div class="br-ph"></div><div class="br-s"></div></div></div>
+        <div class="br-bar"><i></i></div>${ctx.train?'':'<button class="big" id="brDone">Достаточно</button>'}`;
+      ctx.root.appendChild(box);
+      if(!ctx.train)box.querySelector('#brDone').onclick=()=>end();
+      wakeOn();document.addEventListener('visibilitychange',onVis);
+      ctx.startTimer();update();tick=setInterval(update,100);},
+    stop(){clearInterval(tick);document.removeEventListener('visibilitychange',onVis);try{if(wake)wake.release();}catch(e){}wake=null;box=null;c=null;}
+  };
+})());
+
 /* =====================================================================
    6. ИНТЕРФЕЙС: экраны и переходы (кнопка «Назад» телефона работает как стрелка в шапке)
    ===================================================================== */
@@ -754,16 +820,31 @@ addEventListener('popstate',e=>{
 });
 $('#backBtn').onclick=goBack;
 
+/* Автосохранение незаконченной партии (для упражнений с save()): каждые 5 с, при уходе из приложения
+   и при выходе с экрана игры. Хранится, пока партию не закончат или не начнут новую. */
+function autosave(){
+  if(!running||!running.mod.save||running.ctx._dead||running.ctx.done)return;
+  try{const st=running.mod.save();if(!st)return;
+    Store.settings().saved[running.mod.id]={mode:running.ctx.mode,level:running.ctx.level.id,elapsed:Math.round(running.ctx.elapsed()),state:st,date:new Date().toISOString()};
+    Store.save();}catch(e){console.error(e);}}
+const savedOf=mod=>{const v=Store.settings().saved[mod.id];return v&&mod.save&&mod.levels.some(l=>l.id===v.level)&&mod.modes.includes(v.mode)?v:null;};
+function dropSaved(mod){if(Store.settings().saved[mod.id]){delete Store.settings().saved[mod.id];Store.save();}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')autosave();});
+addEventListener('pagehide',autosave);
 function stopRunning(){
   if(!running)return;
-  running.ctx._dead=true;clearInterval(running.tick);
+  autosave();
+  running.ctx._dead=true;clearInterval(running.tick);clearInterval(running.saveTick);
   try{running.mod.stop();}catch(e){console.error(e);}
   running=null;}
 
 function show(st){
   stopRunning();
   if(st.s==='run'){const m=Registry.get(st.p);if(!m)return goHome();
-    $('#backBtn').classList.remove('hidden');scrollTo(0,0);return runEx(m,curMode(m),curLevel(m));}
+    $('#backBtn').classList.remove('hidden');scrollTo(0,0);
+    const sv=st.cont&&savedOf(m);
+    if(sv)return runEx(m,sv.mode,m.levels.find(l=>l.id===sv.level),sv);
+    return runEx(m,curMode(m),curLevel(m));}
   $('#backBtn').classList.toggle('hidden',st.s==='home');
   scrollTo(0,0);
   if(st.s==='section')return renderSection(st.p);
@@ -801,26 +882,30 @@ function curLevel(mod){const id=Store.settings().levels[mod.id];return mod.level
 function renderExIntro(id){
   const mod=Registry.get(id);if(!mod)return renderHome();
   const mode=curMode(mod),level=curLevel(mod);
-  const b=Stats.best(mod.id,level.id);
+  const b=Stats.best(mod.id,level.id),sv=savedOf(mod);
   view.innerHTML=`<h2>${esc(mod.title)}</h2>
+    ${sv?`<div class="card small" id="savedCard" style="border-color:var(--accent);background:#eaf2ff"><b>Незаконченная партия</b><br>${esc(MODES[sv.mode])} · ${esc((mod.levels.find(l=>l.id===sv.level)||{}).name||'')} · ${sv.mode==='train'?'время '+fmtTimer(sv.elapsed).slice(0,5)+' · ':''}${fmtDate(sv.date)}</div>`:''}
     <div class="card small">${esc(mod.desc)}</div>
     <div class="lbl">Режим</div>
     <div class="seg">${mod.modes.map(m=>`<button data-mode="${m}" class="${m===mode?'on':''}">${MODES[m]}</button>`).join('')}</div>
     <div class="small muted" style="margin:-4px 4px 12px">${mode==='train'?'Время и очки идут в статистику.':'Без таймера и очков — учитывается только факт занятия.'}</div>
-    <div class="lbl">Уровень сложности</div>
+    <div class="lbl">${esc(mod.levelLabel||'Уровень сложности')}</div>
     <div class="lvls">${mod.levels.map(l=>`<button class="lvl ${l.id===level.id?'on':''}" data-lvl="${esc(l.id)}"><b>${esc(l.name)}</b>${l.hint?`<span>${esc(l.hint)}</span>`:''}</button>`).join('')}</div>
     ${mod.effects&&mod.effects.length?`<div class="lbl">Эффекты</div>
     ${mod.effects.map(f=>{const on=fxState(mod)[f.id];return `<button class="tgl ${on?'on':''}" data-fx="${esc(f.id)}" aria-pressed="${on}"><span>${esc(f.name)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</span><span class="sw"></span></button>`;}).join('')}`:''}
     ${mode==='train'?`<div class="small muted" style="margin:0 4px 12px">Лучший результат на этом уровне: ${b?`<b>${fmtNum(b.score)}</b> ${esc(mod.score.unit)}`:'ещё нет'}</div>`:''}
-    <div class="startbar"><button class="big" id="startBtn">Начать</button></div>`;
+    <div class="startbar">${sv?`<button class="big" id="contBtn">Продолжить</button><button class="big alt" id="startBtn" style="margin-top:8px;min-height:50px">Начать новую</button>`:`<button class="big" id="startBtn">Начать</button>`}</div>`;
   view.querySelectorAll('[data-mode]').forEach(x=>x.onclick=()=>{Store.settings().mode=x.dataset.mode;Store.save();renderExIntro(id);});
   view.querySelectorAll('[data-fx]').forEach(x=>x.onclick=()=>{fxSet(mod,x.dataset.fx,!fxState(mod)[x.dataset.fx]);renderExIntro(id);});
   view.querySelectorAll('[data-lvl]').forEach(x=>x.onclick=()=>{Store.settings().levels[mod.id]=x.dataset.lvl;Store.save();renderExIntro(id);});
-  $('#startBtn').onclick=()=>go({s:'run',p:id});}
+  $('#startBtn').onclick=async()=>{
+    if(sv){if(!await confirmAsk('Начать новую партию?','Незаконченная партия будет удалена.','Начать новую'))return;dropSaved(mod);}
+    go({s:'run',p:id});};
+  if(sv)$('#contBtn').onclick=()=>go({s:'run',p:id,cont:1});}
 
 const fmtNum=n=>n==null?'—':(Math.round(n*10)/10).toString().replace('.',',');
 
-function runEx(mod,mode,level){
+function runEx(mod,mode,level,resume){
   stopRunning();
   $('#backBtn').classList.remove('hidden');
   const train=mode==='train';
@@ -829,20 +914,29 @@ function runEx(mod,mode,level){
     <div class="exroot" id="exRoot"></div>
     <button class="big alt" id="exStop">Завершить</button>`;
   let t0=null,tStop=null;
-  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),_dead:false,
+  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),_dead:false,resume:resume?resume.state:null,
     setInfo:t=>{if(!ctx._dead)$('#exInfo').textContent=t;},
-    startTimer:()=>{t0=performance.now();tStop=null;},
+    startTimer:()=>{t0=performance.now()-(resume&&resume.elapsed||0);tStop=null;},
     elapsed:()=>t0==null?0:((tStop??performance.now())-t0),
     finish:r=>{
-      if(ctx._dead)return;tStop=performance.now();
+      if(ctx._dead)return;tStop=performance.now();ctx.done=true;dropSaved(mod);
       const res=Object.assign({},r);if(res.timeMs==null&&t0!=null)res.timeMs=ctx.elapsed();
       stopRunning();guardClicks();
       const rec=Stats.make(mod,mode,level,res);
       const saved=Stats.add(rec);
       showResult(mod,mode,level,rec,saved);}};
-  running={mod,ctx,tick:train?setInterval(()=>{const e=$('#exTime');if(e&&t0!=null)e.textContent=fmtTimer(ctx.elapsed());},100):0};
-  $('#exStop').onclick=()=>{stopRunning();goBack();};
-  try{mod.start(ctx);}catch(e){console.error(e);stopRunning();toast('Ошибка запуска упражнения');}}
+  running={mod,ctx,tick:train?setInterval(()=>{const e=$('#exTime');if(e&&t0!=null)e.textContent=fmtTimer(ctx.elapsed());},100):0,
+    saveTick:mod.save?setInterval(autosave,5000):0};
+  $('#exStop').onclick=async()=>{
+    if(mod.save&&running&&running.ctx===ctx){
+      const k=await choose('Завершить партию?','Незаконченную партию можно сохранить и продолжить позже.',
+        [{k:'save',l:'Сохранить и выйти',cls:'pri'},{k:'drop',l:'Удалить и выйти',cls:'dng'},{k:null,l:'Продолжить игру',cls:'cnl'}]);
+      if(!k||!running||running.ctx!==ctx)return;
+      stopRunning();if(k==='drop')dropSaved(mod);
+      await histSettled();goBack();return;}
+    stopRunning();goBack();};
+  try{mod.start(ctx);}catch(e){console.error(e);stopRunning();toast('Ошибка запуска упражнения');}
+  if(resume&&running)toast('Партия продолжена');}
 
 function showResult(mod,mode,level,rec,saved){
   const train=mode==='train';
