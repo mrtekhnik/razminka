@@ -59,11 +59,18 @@ h2{font-size:21px;margin:6px 4px 12px}
 .tgl .sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff}
 .tgl.on .sw{background:var(--accent)}
 .tgl.on .sw::after{left:25px}
-.tgl small{display:block;color:var(--muted);font-size:13px}
+.tgl small,.opt small{display:block;color:var(--muted);font-size:13px}
+.card.opt{padding:10px 14px;margin-bottom:8px}
+.card.opt .seg button{min-height:46px}
 /* выполнение упражнения */
 .strip{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:18px;min-height:52px}
 .strip .tm{font-variant-numeric:tabular-nums;font-weight:600}
 .exroot{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;min-height:300px;height:calc(100vh - 290px);height:calc(100dvh - 290px);overflow:hidden;margin-bottom:10px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* экран игры занимает всю высоту под шапкой: поле получает максимум места */
+main.run{display:flex;flex-direction:column;padding:6px 6px calc(6px + env(safe-area-inset-bottom));height:calc(100vh - 58px - env(safe-area-inset-top));height:calc(100dvh - 58px - env(safe-area-inset-top))}
+main.run .strip{min-height:44px;padding:6px 12px;margin-bottom:6px;font-size:17px;flex:none}
+main.run .exroot{flex:1;height:auto;min-height:0;margin-bottom:6px}
+main.run #exStop{min-height:48px;margin:0;flex:none}
 /* таблица Шульте */
 .exroot.center{display:flex;align-items:center;justify-content:center}
 .sch{display:grid;gap:4px}
@@ -97,21 +104,23 @@ h2{font-size:21px;margin:6px 4px 12px}
 @media(max-height:700px){.ct-k button{min-height:48px}.ct-q{font-size:32px}}
 /* судоку */
 .sd{position:absolute;inset:0;display:flex;flex-direction:column}
-.sd-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:6px}
-.sd-g{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);border:2px solid #1b2430;background:#fff}
-.sd-c{border-right:1px solid #c5ccd6;border-bottom:1px solid #c5ccd6;font-size:inherit;font-weight:500;color:var(--accent);display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation;min-width:0;min-height:0}
-.sd-c.c2,.sd-c.c5{border-right:2px solid #1b2430}.sd-c.c8{border-right:0}
-.sd-c.r2,.sd-c.r5{border-bottom:2px solid #1b2430}.sd-c.r8{border-bottom:0}
-.sd-c.giv{color:var(--ink);font-weight:700}
-.sd-c.area{background:#eef3fa}.sd-c.same{background:#dbe7fb}.sd-c.sel{background:#b9d0f6}
+.sd-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:2px;min-height:0}
+.sd-g{display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);border:2px solid #34405a;background:#fff}
+.sd-c{border-right:1px solid #c9d0db;border-bottom:1px solid #c9d0db;font-size:inherit;font-weight:400;color:#2559c9;display:flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation;min-width:0;min-height:0;line-height:1}
+.sd-c.c2,.sd-c.c5{border-right:2px solid #34405a}.sd-c.c8{border-right:0}
+.sd-c.r2,.sd-c.r5{border-bottom:2px solid #34405a}.sd-c.r8{border-bottom:0}
+.sd-c.giv{color:#1b2430}
+.sd-c.area{background:#e8eef7}.sd-c.same{background:#cfdcf0}.sd-c.sel{background:#b3cdf5}
 .sd-c.wrong{color:var(--danger)}
-.nt{display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%;font-size:.46em;line-height:1;color:#3b4656;font-weight:600}
+.nt{display:grid;grid-template-columns:repeat(3,1fr);width:100%;height:100%;font-size:.4em;line-height:1;color:#3b4656;font-weight:500}
 .nt i{font-style:normal;display:flex;align-items:center;justify-content:center}
-.sd-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:6px 8px 8px}
-.sd-pad button{min-height:50px;border-radius:12px;background:#eef2f7;font-size:24px;font-weight:600;touch-action:manipulation}
-.sd-pad .fn{font-size:17px;color:#3b4656}
-.sd-pad .wide{grid-column:span 5;min-height:44px}
-.sd-pad .on{background:var(--accent);color:#fff}
+.sd-pad{flex:none;padding:4px 2px 2px}
+.sd-dg{display:grid;grid-template-columns:repeat(9,1fr);gap:2px}
+.sd-dg button{min-height:60px;border-radius:10px;font-size:34px;font-weight:400;color:#2559c9;touch-action:manipulation}
+.sd-dg button.used{color:#b8c2d1}
+.sd-tl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.sd-tl button{min-height:46px;border-radius:12px;background:#eef2f7;font-size:17px;font-weight:600;color:#3b4656;touch-action:manipulation}
+.sd-tl .on{background:var(--accent);color:#fff}
 .sd-pad button.press{background:#bcd3f7}
 /* пятнашки */
 .pz{position:relative;background:#e3e8ef;border-radius:12px}
@@ -171,7 +180,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.10',APP_DATE='17.11.2026';
+const APP_VERSION='0.11',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -227,7 +236,7 @@ const Store=(()=>{
   // миграции: MIGRATIONS[n] переводит данные из версии n в n+1
   const MIGRATIONS={};
   let data=null,readOnly=false;
-  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{},effects:{},saved:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
+  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{},effects:{},saved:{},options:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
   function normalize(d){
     const f=fresh();
     d.results=Array.isArray(d.results)?d.results:[];
@@ -235,6 +244,7 @@ const Store=(()=>{
     if(!d.settings.levels||typeof d.settings.levels!=='object')d.settings.levels={};
     if(!d.settings.effects||typeof d.settings.effects!=='object')d.settings.effects={};
     if(!d.settings.saved||typeof d.settings.saved!=='object')d.settings.saved={};
+    if(!d.settings.options||typeof d.settings.options!=='object')d.settings.options={};
     for(const k in d.settings.effects){const v=d.settings.effects[k];
       if(typeof v==='boolean')d.settings.effects[k]=v?{error:true}:{};          // формат версии 0.4
       else if(!v||typeof v!=='object')d.settings.effects[k]={};}
@@ -274,6 +284,8 @@ const Store=(()=>{
      score     — {unit:'…', better:'high'|'low'} — что такое очки и что лучше
      effects   — (необязательно) визуальные эффекты игры: [{id:'press',name:'…',hint:'…'}, …];
                  у каждого свой переключатель, по умолчанию выключен; в ctx.effects.<id> — включён ли
+     options   — (необязательно) настройки игры: [{id,name,hint,type:'toggle',def:false}] или
+                 [{id,name,type:'choice',choices:[{v:3,l:'3'},…],def:3}]; значения — в ctx.options.<id>
      save()    — (необязательно) состояние партии для автосохранения; при «Продолжить» оно приходит в ctx.resume
      levelLabel— (необязательно) подпись вместо «Уровень сложности»
      ownTimer  — (необязательно) true: упражнение само показывает время, общий секундомер скрыт
@@ -597,11 +609,13 @@ Registry.register((()=>{
 
   let c=null,root=null,box=null,gridEl=null,cells=[],puz,sol,val,notes,sel=-1,noteMode=false,errs=0,onRes=null;
   function layout(){
-    if(!box)return;const pad=box.querySelector('.sd-pad'),W=root.clientWidth-12,H=root.clientHeight-pad.offsetHeight-18;
-    const side=Math.max(200,Math.floor(Math.min(W,H)/9)*9);
-    gridEl.style.width=gridEl.style.height=side+'px';gridEl.style.fontSize=Math.round(side/9*0.58)+'px';}
+    if(!box)return;const pad=box.querySelector('.sd-pad'),W=root.clientWidth-4,H=root.clientHeight-pad.offsetHeight-6;
+    const side=Math.max(200,Math.floor(Math.min(W,H)));
+    gridEl.style.width=gridEl.style.height=side+'px';gridEl.style.fontSize=Math.round(side/9*0.68)+'px';}
   function left(){let n=0;for(let i=0;i<81;i++)if(val[i]!==sol[i])n++;return n;}
-  function info(){c.setInfo(`Осталось клеток: ${left()}`+(c.train&&c.effects.errors&&errs?` · ошибок: ${errs}`:''));}
+  const limit=()=>c.train?c.options.limit:0;
+  function info(){const L=limit();
+    c.setInfo(`Осталось: ${left()}`+(L?` · ошибки ${errs}/${L}`:(c.train&&c.effects.errors&&errs?` · ошибок: ${errs}`:'')));}
   function draw(){
     const sv=sel>=0?val[sel]:0;
     for(let i=0;i<81;i++){
@@ -613,9 +627,11 @@ Registry.register((()=>{
       if(v)el.textContent=v;
       else if(notes[i])el.innerHTML='<span class="nt">'+[1,2,3,4,5,6,7,8,9].map(d=>`<i>${notes[i]&(1<<d)?d:''}</i>`).join('')+'</span>';
       else el.textContent='';}
-    box.querySelector('[data-k="note"]').classList.toggle('on',noteMode);}
+    box.querySelector('[data-k="note"]').classList.toggle('on',noteMode);
+    for(let d=1;d<=9;d++)box.querySelector(`.sd-dg [data-k="${d}"]`).classList.toggle('used',val.filter((v,i)=>v===d&&v===sol[i]).length>=9);}
   function put(d){
     if(sel<0||puz[sel])return;
+    if(c.options.lock&&val[sel]&&val[sel]===sol[sel])return;   // верная цифра закреплена
     if(d===0){val[sel]=0;notes[sel]=0;draw();info();return;}
     if(noteMode){if(!val[sel]){notes[sel]^=1<<d;draw();}return;}
     if(val[sel]===d)return;
@@ -623,6 +639,8 @@ Registry.register((()=>{
     if(d!==sol[sel])errs++;
     else for(let i=0;i<81;i++)if(RC[i][0]===RC[sel][0]||RC[i][1]===RC[sel][1]||RC[i][2]===RC[sel][2])notes[i]&=~(1<<d); // убрать заметку с этой цифрой рядом
     draw();info();
+    if(limit()&&errs>=limit()){const t=c.elapsed();
+      c.finish({score:null,timeMs:t,extra:{errors:errs,givens:puz.filter(Boolean).length,lost:true,lostText:`Допущено ошибок: ${errs} из ${limit()} разрешённых`}});return;}
     if(!left()){const t=c.elapsed();c.finish({score:t/1000,timeMs:t,extra:{errors:errs,givens:puz.filter(Boolean).length}});}}
   function down(e){
     if(!c)return;
@@ -643,11 +661,14 @@ Registry.register((()=>{
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'38 открытых цифр'},{id:'2',name:'Средний',hint:'32 открытые цифры'},{id:'3',name:'Сложный',hint:'28 открытых цифр'},{id:'4',name:'Эксперт',hint:'около 25 открытых цифр'}],
     score:{unit:'с',better:'low'},
+    options:[{id:'limit',name:'Лимит ошибок',hint:'Партия заканчивается после стольких ошибок (только в «Тренировке»)',type:'choice',
+               choices:[{v:0,l:'Нет'},{v:3,l:'3'},{v:5,l:'5'},{v:10,l:'10'}],def:3},
+             {id:'lock',name:'Закреплять верные цифры',hint:'Верно поставленную цифру нельзя изменить или стереть (как на sudoku.com)',type:'toggle',def:false}],
     effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая кнопка цифры на мгновение подсвечивается'},
              {id:'area',name:'Подсветка строки, столбца и квадрата',hint:'Для выбранной клетки'},
              {id:'same',name:'Подсветка одинаковых цифр',hint:'Все такие же цифры, как в выбранной клетке'},
              {id:'errors',name:'Подсветка ошибок',hint:'Неверная цифра показывается красным (это подсказка)'}],
-    summary:r=>r.extra?`Ошибок: <b>${r.extra.errors}</b> · открытых цифр: ${r.extra.givens}`:'',
+    summary:r=>r.extra&&!r.extra.lost?`Ошибок: <b>${r.extra.errors}</b> · открытых цифр: ${r.extra.givens}`:'',
     _generate:generate,_solve:solve,
     save:()=>puz?{puz,sol,val:val.slice(),notes:notes.slice(),errs}:null,
     start(ctx){
@@ -657,8 +678,8 @@ Registry.register((()=>{
       else{const g=generate(ctx.level.id);puz=g.puz;sol=g.sol;val=puz.slice();notes=new Array(81).fill(0);}
       box=document.createElement('div');box.className='sd';
       box.innerHTML=`<div class="sd-wrap"><div class="sd-g">${puz.map((v,i)=>`<button class="sd-c${v?' giv':''} r${RC[i][0]} c${RC[i][1]}" data-i="${i}"></button>`).join('')}</div></div>
-        <div class="sd-pad">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-k="${d}">${d}</button>`).join('')}<button data-k="0" class="fn" aria-label="Стереть">⌫</button>
-        <button data-k="note" class="fn wide">Заметки</button></div>`;
+        <div class="sd-pad"><div class="sd-dg">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-k="${d}">${d}</button>`).join('')}</div>
+        <div class="sd-tl"><button data-k="0">⌫ Стереть</button><button data-k="note">✎ Заметки</button></div></div>`;
       gridEl=box.querySelector('.sd-g');cells=[...box.querySelectorAll('.sd-c')];
       box.addEventListener('pointerdown',down);addEventListener('keydown',onKey);
       root.appendChild(box);layout();onRes=()=>layout();addEventListener('resize',onRes);
@@ -839,7 +860,7 @@ function stopRunning(){
   running=null;}
 
 function show(st){
-  stopRunning();
+  stopRunning();view.classList.remove('run');
   if(st.s==='run'){const m=Registry.get(st.p);if(!m)return goHome();
     $('#backBtn').classList.remove('hidden');scrollTo(0,0);
     const sv=st.cont&&savedOf(m);
@@ -876,6 +897,9 @@ function renderSection(id){
 
 function curMode(mod){const m=Store.settings().mode;return mod.modes.includes(m)?m:mod.modes[0];}
 function fxState(mod){const st=Store.settings().effects[mod.id]||{},o={};(mod.effects||[]).forEach(f=>o[f.id]=st[f.id]===true);return o;}
+function optState(mod){const st=Store.settings().options[mod.id]||{},o={};
+  (mod.options||[]).forEach(f=>{const v=st[f.id];o[f.id]=f.type==='choice'?(f.choices.some(c=>c.v===v)?v:f.def):(typeof v==='boolean'?v:!!f.def);});return o;}
+function optSet(mod,id,v){const e=Store.settings().options;if(!e[mod.id]||typeof e[mod.id]!=='object')e[mod.id]={};e[mod.id][id]=v;Store.save();}
 function fxSet(mod,id,v){const e=Store.settings().effects;if(!e[mod.id]||typeof e[mod.id]!=='object')e[mod.id]={};e[mod.id][id]=v;Store.save();}
 function curLevel(mod){const id=Store.settings().levels[mod.id];return mod.levels.find(l=>l.id===id)||mod.levels[0];}
 
@@ -891,11 +915,17 @@ function renderExIntro(id){
     <div class="small muted" style="margin:-4px 4px 12px">${mode==='train'?'Время и очки идут в статистику.':'Без таймера и очков — учитывается только факт занятия.'}</div>
     <div class="lbl">${esc(mod.levelLabel||'Уровень сложности')}</div>
     <div class="lvls">${mod.levels.map(l=>`<button class="lvl ${l.id===level.id?'on':''}" data-lvl="${esc(l.id)}"><b>${esc(l.name)}</b>${l.hint?`<span>${esc(l.hint)}</span>`:''}</button>`).join('')}</div>
+    ${mod.options&&mod.options.length?`<div class="lbl">Настройки игры</div>
+    ${mod.options.map(f=>{const v=optState(mod)[f.id];
+      if(f.type==='choice')return `<div class="card opt"><div>${esc(f.name)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</div><div class="seg" style="margin:8px 0 0">${f.choices.map(ch=>`<button data-opt="${esc(f.id)}" data-v="${esc(JSON.stringify(ch.v))}" class="${ch.v===v?'on':''}">${esc(ch.l)}</button>`).join('')}</div></div>`;
+      return `<button class="tgl ${v?'on':''}" data-opt="${esc(f.id)}" aria-pressed="${v}"><span>${esc(f.name)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</span><span class="sw"></span></button>`;}).join('')}`:''}
     ${mod.effects&&mod.effects.length?`<div class="lbl">Эффекты</div>
     ${mod.effects.map(f=>{const on=fxState(mod)[f.id];return `<button class="tgl ${on?'on':''}" data-fx="${esc(f.id)}" aria-pressed="${on}"><span>${esc(f.name)}${f.hint?`<small>${esc(f.hint)}</small>`:''}</span><span class="sw"></span></button>`;}).join('')}`:''}
     ${mode==='train'?`<div class="small muted" style="margin:0 4px 12px">Лучший результат на этом уровне: ${b?`<b>${fmtNum(b.score)}</b> ${esc(mod.score.unit)}`:'ещё нет'}</div>`:''}
     <div class="startbar">${sv?`<button class="big" id="contBtn">Продолжить</button><button class="big alt" id="startBtn" style="margin-top:8px;min-height:50px">Начать новую</button>`:`<button class="big" id="startBtn">Начать</button>`}</div>`;
   view.querySelectorAll('[data-mode]').forEach(x=>x.onclick=()=>{Store.settings().mode=x.dataset.mode;Store.save();renderExIntro(id);});
+  view.querySelectorAll('[data-opt]').forEach(x=>x.onclick=()=>{const f=mod.options.find(o=>o.id===x.dataset.opt);
+    optSet(mod,f.id,f.type==='choice'?JSON.parse(x.dataset.v):!optState(mod)[f.id]);renderExIntro(id);});
   view.querySelectorAll('[data-fx]').forEach(x=>x.onclick=()=>{fxSet(mod,x.dataset.fx,!fxState(mod)[x.dataset.fx]);renderExIntro(id);});
   view.querySelectorAll('[data-lvl]').forEach(x=>x.onclick=()=>{Store.settings().levels[mod.id]=x.dataset.lvl;Store.save();renderExIntro(id);});
   $('#startBtn').onclick=async()=>{
@@ -906,7 +936,7 @@ function renderExIntro(id){
 const fmtNum=n=>n==null?'—':(Math.round(n*10)/10).toString().replace('.',',');
 
 function runEx(mod,mode,level,resume){
-  stopRunning();
+  stopRunning();view.classList.add('run');
   $('#backBtn').classList.remove('hidden');
   const train=mode==='train';
   view.innerHTML=`
@@ -914,7 +944,7 @@ function runEx(mod,mode,level,resume){
     <div class="exroot" id="exRoot"></div>
     <button class="big alt" id="exStop">Завершить</button>`;
   let t0=null,tStop=null;
-  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),_dead:false,resume:resume?resume.state:null,
+  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),options:optState(mod),_dead:false,resume:resume?resume.state:null,
     setInfo:t=>{if(!ctx._dead)$('#exInfo').textContent=t;},
     startTimer:()=>{t0=performance.now()-(resume&&resume.elapsed||0);tStop=null;},
     elapsed:()=>t0==null?0:((tStop??performance.now())-t0),
@@ -939,9 +969,14 @@ function runEx(mod,mode,level,resume){
   if(resume&&running)toast('Партия продолжена');}
 
 function showResult(mod,mode,level,rec,saved){
+  view.classList.remove('run');
   const train=mode==='train';
   let body;
-  if(train){
+  if(rec.extra&&rec.extra.lost){
+    body=`<div class="sc" style="color:var(--danger)">Не решено</div><div class="un">${esc(rec.extra.lostText||'Партия остановлена')}</div>
+      <div class="small muted" style="margin-top:8px">Занятие засчитано, в лучшие результаты не идёт</div>`;
+    if(mod.summary){const x=mod.summary(rec);if(x)body+=`<div class="small" style="margin-top:10px">${x}</div>`;}
+  }else if(train){
     const prev=Stats.best(mod.id,level.id,rec.id);
     const isRec=rec.score!=null&&(!prev||(mod.score.better==='low'?rec.score<prev.score:rec.score>prev.score));
     body=`<div class="sc">${fmtNum(rec.score)}</div><div class="un">${esc(mod.score.unit)}</div>
