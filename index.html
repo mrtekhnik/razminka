@@ -98,7 +98,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.1',APP_DATE='17.11.2026';
+const APP_VERSION='0.2',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -315,9 +315,9 @@ function render(st){
 function renderHome(){
   view.innerHTML=`
     <button class="big off" id="warmBtn">Разминка на 5 минут</button>
-    ${SECTIONS.map(s=>{const n=Registry.bySection(s.id).filter(m=>!m.test).length,sm=Stats.sectionSummary(s.id);
+    ${SECTIONS.map(s=>{const all=Registry.bySection(s.id),n=all.filter(m=>!m.test).length,t=all.length-n,sm=Stats.sectionSummary(s.id);
       return `<button class="sec" data-sec="${s.id}"><span class="dot" style="background:${s.color}"></span>
-        <span><div class="nm">${esc(s.name)}</div><div class="ds">${n?`Упражнений: ${n}`:'Упражнения скоро'}${sm.count?` · занятий: ${sm.count}`:''}</div></span>
+        <span><div class="nm">${esc(s.name)}</div><div class="ds">${n?`Упражнений: ${n}`:t?'Тестовое упражнение':'Упражнения скоро'}${sm.count?` · занятий: ${sm.count}`:''}</div></span>
         <svg class="i go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`;}).join('')}
     <button class="big alt" id="statsBtn">Статистика</button>`;
   $('#warmBtn').onclick=()=>toast('«Разминка на 5 минут» появится на этапе 2');
