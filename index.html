@@ -139,7 +139,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.7',APP_DATE='17.11.2026';
+const APP_VERSION='0.8',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -156,9 +156,11 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function fxFlash(el,cls,ms){el.classList.remove(cls);clearTimeout(el['_fx'+cls]);void el.offsetWidth;el.classList.add(cls);el['_fx'+cls]=setTimeout(()=>el.classList.remove(cls),ms);}
 function toast(msg,ms=2600){const t=$('#toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.add('hidden'),ms);}
 
-/* История браузера. Приложение само помнит путь по экранам; в историю браузера кладётся
-   не больше одной служебной записи («guard») — пока открыт не главный экран, — и ещё одна, пока открыто окно.
-   Свой шаг назад (selfBack) делается только когда текущая запись точно своя. */
+/* История браузера. Каждый экран — своя запись: главная (d=0) → раздел → выбор уровня → игра.
+   Записи добавляются ТОЛЬКО в момент касания при переходе вперёд: Chrome помечает «пропускаемыми»
+   записи, после которых страница добавила новую без касания, и «Назад» их перепрыгивает.
+   «Назад» телефона, стрелка в шапке и кнопки «Сменить уровень», «К разделам» ходят по этим записям. */
+const activeTap=()=>!navigator.userActivation||navigator.userActivation.isActive;
 let modalClose=null,ownBack=null;
 function selfBack(){return new Promise(res=>{
   const o={done(){if(ownBack!==o)return;ownBack=null;clearTimeout(o.t);res();}};
@@ -173,7 +175,7 @@ async function choose(title,html,opts){
     const m=$('#modal');
     m.innerHTML=`<div class="dlg" role="dialog"><h3>${esc(title)}</h3>${html?`<div class="dtext">${html}</div>`:''}<div class="dbtns">${opts.map((o,i)=>`<button data-i="${i}" class="${o.cls||''}">${esc(o.l)}</button>`).join('')}</div></div>`;
     m.classList.remove('hidden');
-    history.pushState(Object.assign({},history.state,{modal:1}),'');
+    if(activeTap())history.pushState(Object.assign({},history.state,{modal:1}),'');
     const close=(v,fromPop)=>{m.classList.add('hidden');m.innerHTML='';m.onclick=null;modalClose=null;
       if(!fromPop&&history.state&&history.state.modal)selfBack();
       res(v);};
@@ -534,33 +536,35 @@ Registry.register((()=>{
 const view=$('#view');
 let running=null; // запущенное упражнение
 
-let cur={s:'home'},stack=[];
+let cur={s:'home'},curD=0;
 const isHome=st=>!st||st.s==='home';
-function parentOf(st){
-  if(st.s==='run')return{s:'ex',p:st.p};
-  if(st.s==='ex'){const m=Registry.get(st.p);return m?{s:'section',p:m.section}:{s:'home'};}
-  return{s:'home'};}
-// привести историю браузера в соответствие с текущим экраном
-async function syncGuard(){
+const depthOf=st=>st.s==='run'?3:st.s==='ex'?2:isHome(st)?0:1;
+const appState=(scr,d)=>({app:APP_ID,d,scr});
+// состояние записи истории → экран (понимает и записи прошлых версий)
+function fromHist(h){
+  if(!h)return null;
+  if(h.app===APP_ID&&h.scr)return{scr:h.scr,d:h.d|0};
+  if(h.guard&&h.scr)return{scr:h.scr,d:depthOf(h.scr)};
+  if(h.base)return{scr:{s:'home'},d:0};
+  if(h.s)return{scr:h.run?{s:'run',p:h.p}:{s:h.s,p:h.p},d:depthOf(h.run?{s:'run'}:h)};
+  return null;}
+async function go(st){
   await histSettled();
-  const h=history.state||{};
-  if(h.modal)return;
-  if(isHome(cur)){if(h.guard){await selfBack();if(!isHome(cur))syncGuard();}}
-  else if(h.guard)history.replaceState({guard:1,scr:cur},'');
-  else history.pushState({guard:1,scr:cur},'');}
-function go(st){stack.push(cur);cur=st;show(st);syncGuard();}
-function goBack(){
-  if(modalClose){modalClose();return;}
-  cur=stack.pop()||parentOf(cur);show(cur);syncGuard();}
-function goHome(){stack=[];cur={s:'home'};show(cur);syncGuard();}
+  if(activeTap()){curD++;history.pushState(appState(st,curD),'');}
+  else history.replaceState(appState(st,curD),'');     // без касания новую запись не добавляем
+  cur=st;show(st);}
+function goBack(){if(modalClose){modalClose();return;}history.back();}
+function goHome(){if(curD>0)history.go(-curD);else{cur={s:'home'};show(cur);}}
 function refresh(){if(cur.s!=='run')show(cur);}
-addEventListener('popstate',()=>{
+addEventListener('popstate',e=>{
   if(ownBack){ownBack.done();return;}
-  if(modalClose){modalClose(true);return;}
-  // «Назад» телефона на главном экране: оказались на своей старой записи — идём дальше, к выходу
-  if(isHome(cur)){history.back();return;}
-  // «Назад» на любом другом экране: служебная запись снята — показываем экран выше
-  cur=stack.pop()||parentOf(cur);show(cur);syncGuard();
+  const wasModal=!!modalClose;if(modalClose)modalClose(true);
+  const f=fromHist(e.state)||{scr:{s:'home'},d:0};
+  const same=JSON.stringify(f.scr)===JSON.stringify(cur);
+  curD=f.d;
+  if(wasModal&&same)return;                 // закрыли окно — экран под ним не трогаем (игра не перезапускается)
+  if(f.scr.s==='run'&&f.d>0){cur={s:'ex',p:f.scr.p};curD=f.d-1;show(cur);selfBack();return;} // на запись игры — к выбору уровня
+  cur=f.scr;show(cur);
 });
 $('#backBtn').onclick=goBack;
 
@@ -780,12 +784,10 @@ Store.load();
 // результаты тестовой заглушки этапа 0 больше не нужны
 if(!Store.readOnly&&Store.data.results.some(r=>r.ex==='stub')){Store.data.results=Store.data.results.filter(r=>r.ex!=='stub');Store.save();}
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
-{const h=history.state;
-  if(h&&h.guard&&h.scr)cur=h.scr;                         // перезагрузка на внутреннем экране
-  else if(h&&h.s&&!h.modal)cur={s:h.s,p:h.p};               // запись от версий до 0.6
-  if(cur.s==='run')cur={s:'ex',p:cur.p};
-  if(!h)history.replaceState({base:1},'');
-  show(cur);syncGuard();}
+{const f=fromHist(history.state);
+  if(!f){history.replaceState(appState({s:'home'},0),'');cur={s:'home'};curD=0;show(cur);}
+  else if(f.scr.s==='run'&&f.d>0){cur={s:'ex',p:f.scr.p};curD=f.d-1;show(cur);selfBack();}   // перезагрузка во время игры → к выбору уровня
+  else{cur=f.scr;curD=f.d;history.replaceState(appState(cur,curD),'');show(cur);}}
 </script>
 </body>
 </html>
