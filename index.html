@@ -74,6 +74,27 @@ h2{font-size:21px;margin:6px 4px 12px}
 .rt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:24px;font-weight:600;color:#fff;touch-action:manipulation}
 .rt b{font-size:52px}
 .rt.wait{background:#5b6675}.rt.go{background:#1a8a4a}.rt.red{background:#d93a3a}.rt.bad{background:#b8620b}.rt.shown{background:#1f6feb}
+/* пары */
+.pr{display:grid;gap:6px}
+.pr-c{border-radius:10px;background:#3b5b8a;display:flex;align-items:center;justify-content:center;line-height:1;touch-action:manipulation;font-size:inherit}
+.pr-c.up{background:#fff;border:2px solid var(--line)}
+.pr-c.done{background:#eef7f1;border-color:#cfe7d7}
+.pr-c.press{background:#bcd3f7}
+.pr-c.match{background:#bfe8cc}
+.pr-c.flip{animation:prflip .18s ease-out}
+@keyframes prflip{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+/* счёт в уме */
+.ct{position:absolute;inset:0;display:flex;flex-direction:column}
+.ct-top{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;min-height:120px}
+.ct-q{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;padding:6px 14px;border-radius:12px;text-align:center}
+.ct-q.okf{background:#bfe8cc}.ct-q.badf{background:#f6c9c9}
+.ct-m{min-height:24px;margin-top:6px;font-size:17px;color:var(--muted)}
+.ct-m.err{color:var(--danger);font-weight:600}
+.ct-k{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px}
+.ct-k button{min-height:58px;border-radius:12px;background:#eef2f7;font-size:26px;font-weight:600;touch-action:manipulation}
+.ct-k button.fn{font-size:17px;color:#3b4656}
+.ct-k button.press{background:#bcd3f7}
+@media(max-height:700px){.ct-k button{min-height:48px}.ct-q{font-size:32px}}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -118,7 +139,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.6',APP_DATE='17.11.2026';
+const APP_VERSION='0.7',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -131,6 +152,8 @@ function fmtDate(iso){const d=new Date(iso);if(isNaN(d))return '—';return `${p
 function fmtTime(ms){if(ms==null)return '—';const s=ms/1000;if(s<60)return s.toFixed(1).replace('.',',')+' с';const m=Math.floor(s/60);return `${m}:${pad2(Math.floor(s%60))} мин`;}
 function fmtTimer(ms){const s=Math.floor(ms/1000);return `${pad2(Math.floor(s/60))}:${pad2(s%60)}.${Math.floor(ms%1000/100)}`;}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+// короткая подсветка элемента (визуальный эффект игры — вызывается только если он включён)
+function fxFlash(el,cls,ms){el.classList.remove(cls);clearTimeout(el['_fx'+cls]);void el.offsetWidth;el.classList.add(cls);el['_fx'+cls]=setTimeout(()=>el.classList.remove(cls),ms);}
 function toast(msg,ms=2600){const t=$('#toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.add('hidden'),ms);}
 
 /* История браузера. Приложение само помнит путь по экранам; в историю браузера кладётся
@@ -216,6 +239,7 @@ const Store=(()=>{
      score     — {unit:'…', better:'high'|'low'} — что такое очки и что лучше
      effects   — (необязательно) визуальные эффекты игры: [{id:'press',name:'…',hint:'…'}, …];
                  у каждого свой переключатель, по умолчанию выключен; в ctx.effects.<id> — включён ли
+     ownTimer  — (необязательно) true: упражнение само показывает время, общий секундомер скрыт
      start(ctx)— запуск; ctx: root, mode, level, train, setInfo(), startTimer(), elapsed(), finish({score,timeMs,extra})
      stop()    — остановка (убрать таймеры и обработчики)
    ===================================================================== */
@@ -298,13 +322,12 @@ Registry.register((()=>{
     grid.style.width=grid.style.height=side+'px';
     grid.style.fontSize=Math.round(side/size*0.42)+'px';}
   function info(){c.setInfo(`Найдите: ${next}`+(c.train&&errs?` · ошибок: ${errs}`:''));}
-  function flash(cell,cls,ms){cell.classList.remove('press','bad');cell.classList.add(cls);clearTimeout(cell._t);cell._t=setTimeout(()=>cell.classList.remove(cls),ms);}
   function down(e){
     const cell=e.target.closest('.sch-c');if(!cell||!c)return;
     e.preventDefault();
     const right=+cell.dataset.n===next;
-    if(c.effects.error&&!right)flash(cell,'bad',250);
-    else if(c.effects.press)flash(cell,'press',150);
+    if(c.effects.error&&!right){cell.classList.remove('press');fxFlash(cell,'bad',250);}
+    else if(c.effects.press){cell.classList.remove('bad');fxFlash(cell,'press',150);}
     if(right){
       next++;
       if(next>size*size){const t=c.elapsed();c.finish({score:t/1000,timeMs:t,extra:{errors:errs,size}});return;}
@@ -379,6 +402,129 @@ Registry.register((()=>{
       box.addEventListener('pointerdown',down);
       ctx.root.appendChild(box);ctx.startTimer();next();},
     stop(){clearTimeout(timer);cancelAnimationFrame(raf);if(box)box.removeEventListener('pointerdown',down);box=null;c=null;state='';}
+  };
+})());
+
+/* --- Пары / мемори (Память). Открывать по две карточки и находить одинаковые.
+       Очки = число ходов (меньше — лучше), время записывается отдельно. --- */
+Registry.register((()=>{
+  const SYM=['🍎','🍌','🍇','🍓','🍒','🍋','🥝','🍉','🍑','🍍','🥕','🌽','🍄','🌻','🌵','🐟','🐢','🦋','🐞','🐝'];
+  const LV={1:[3,4],2:[4,4],3:[4,5],4:[5,6]}; // столбцов, строк
+  let c=null,root=null,grid=null,cols=0,rows=0,open=[],moves=0,found=0,pairs=0,tm=0,onRes=null;
+  function layout(){
+    if(!grid)return;const g=6,W=root.clientWidth-16,H=root.clientHeight-16;
+    const s=Math.max(40,Math.floor(Math.min((W-(cols-1)*g)/cols,(H-(rows-1)*g)/rows)));
+    grid.style.gridTemplateColumns=`repeat(${cols},${s}px)`;grid.style.gridAutoRows=s+'px';grid.style.fontSize=Math.round(s*0.55)+'px';}
+  function info(){c.setInfo(c.train?`Ходов: ${moves} · пар: ${found} из ${pairs}`:`Пар: ${found} из ${pairs}`);}
+  function up(card){card.classList.add('up');card.textContent=card.dataset.v;
+    if(c.effects.flip){card.classList.remove('flip');void card.offsetWidth;card.classList.add('flip');}}
+  function hide(card){card.classList.remove('up','flip');card.textContent='';}
+  function closeOpen(){clearTimeout(tm);tm=0;open.forEach(hide);open=[];}
+  function down(e){
+    const card=e.target.closest('.pr-c');if(!card||!c)return;e.preventDefault();
+    if(card.classList.contains('done')||card.classList.contains('up'))return;
+    if(open.length===2)closeOpen();   // неудачную пару не ждём: следующее касание сразу её закрывает
+    if(c.effects.press)fxFlash(card,'press',150);
+    up(card);open.push(card);
+    if(open.length<2)return;
+    moves++;const[a,b]=open;
+    if(a.dataset.v===b.dataset.v){
+      a.classList.add('done');b.classList.add('done');open=[];found++;
+      if(c.effects.match){fxFlash(a,'match',400);fxFlash(b,'match',400);}
+      info();
+      if(found===pairs)c.finish({score:moves,extra:{pairs,moves}});
+    }else{info();tm=setTimeout(closeOpen,900);}}
+  return{
+    id:'pairs',title:'Пары (мемори)',section:'memory',
+    desc:'Открывайте по две карточки. Одинаковые остаются открытыми, разные закрываются. Найдите все пары за наименьшее число ходов.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'12 карточек, 6 пар'},{id:'2',name:'Средний',hint:'16 карточек, 8 пар'},{id:'3',name:'Сложный',hint:'20 карточек, 10 пар'},{id:'4',name:'Эксперт',hint:'30 карточек, 15 пар'}],
+    score:{unit:'ходов',short:'ход.',better:'low'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая карточка на мгновение подсвечивается'},
+             {id:'match',name:'Подсветка найденной пары',hint:'Найденная пара на мгновение подсвечивается зелёным'},
+             {id:'flip',name:'Переворот карточки',hint:'Карточка открывается коротким поворотом'}],
+    summary:r=>r.extra?`Пар: <b>${r.extra.pairs}</b> · минимум ходов: ${r.extra.pairs}`:'',
+    start(ctx){
+      c=ctx;root=ctx.root;[cols,rows]=LV[ctx.level.id]||LV[1];pairs=cols*rows/2;open=[];moves=0;found=0;
+      const pool=SYM.slice();for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+      const deck=pool.slice(0,pairs).flatMap(v=>[v,v]);
+      for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+      root.classList.add('center');
+      grid=document.createElement('div');grid.className='pr';
+      grid.innerHTML=deck.map(v=>`<button class="pr-c" data-v="${v}" aria-label="Карточка"></button>`).join('');
+      grid.addEventListener('pointerdown',down);root.appendChild(grid);layout();
+      onRes=()=>layout();addEventListener('resize',onRes);
+      info();ctx.startTimer();},
+    stop(){clearTimeout(tm);if(grid)grid.removeEventListener('pointerdown',down);if(onRes)removeEventListener('resize',onRes);
+      if(root)root.classList.remove('center');grid=null;c=null;root=null;onRes=null;open=[];}
+  };
+})());
+
+/* --- Счёт в уме на время (Счёт). Тренировка: сколько примеров решено верно за 60 секунд.
+       Отдых: 10 примеров без таймера. Ответ набирается на экранных кнопках (на ПК — и с клавиатуры),
+       проверяется сам, как только набрано нужное число цифр. --- */
+Registry.register((()=>{
+  const DUR=60000,REST_N=10;
+  let c=null,root=null,box=null,q=null,prevT='',inp='',right=0,wrong=0,total=0,tick=0,lockUntil=0,msgT=0,ended=false;
+  const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+  function gen(lv){
+    let a,b,op;
+    if(lv==='1'){op=Math.random()<.5?'+':'−';if(op==='+'){a=rnd(1,10);b=rnd(1,10);}else{a=rnd(3,20);b=rnd(1,a-1);}}
+    else if(lv==='2'){op=Math.random()<.5?'+':'−';if(op==='+'){a=rnd(11,88);b=rnd(2,99-a);}else{a=rnd(20,99);b=rnd(2,a-2);}}
+    else if(lv==='3'){if(Math.random()<.5){op='×';a=rnd(2,9);b=rnd(2,9);}else{op='÷';b=rnd(2,9);a=b*rnd(2,9);}}
+    else{const k=rnd(0,3);
+      if(k===0){op='+';a=rnd(101,889);b=rnd(11,999-a);}
+      else if(k===1){op='−';a=rnd(120,999);b=rnd(11,a-10);}
+      else if(k===2){op='×';a=rnd(11,25);b=rnd(3,9);}
+      else{op='÷';b=rnd(3,9);a=b*rnd(11,25);}}
+    const ans=op==='+'?a+b:op==='−'?a-b:op==='×'?a*b:a/b;
+    return{t:`${a} ${op} ${b}`,ans:String(ans)};}
+  function next(){
+    do{q=gen(c.level.id);}while(q.t===prevT);prevT=q.t;inp='';draw();info();}
+  function draw(){box.querySelector('.ct-q').textContent=`${q.t} = ${inp||'?'}`;}
+  function info(){
+    if(c.train)c.setInfo(`Осталось: ${Math.max(0,Math.ceil((DUR-c.elapsed())/1000))} с · верно: ${right}`);
+    else c.setInfo(`Пример ${Math.min(total+1,REST_N)} из ${REST_N}`);}
+  function say(t,cls){const m=box.querySelector('.ct-m');m.textContent=t;m.className='ct-m '+(cls||'');clearTimeout(msgT);msgT=setTimeout(()=>{if(box){m.textContent='';m.className='ct-m';}},1200);}
+  function answer(ok){
+    total++;const qe=box.querySelector('.ct-q');
+    if(ok){right++;if(c.effects.right)fxFlash(qe,'okf',300);say('');}
+    else{wrong++;if(c.effects.error)fxFlash(qe,'badf',400);say(`Неверно: ${q.t} = ${q.ans}`,'err');lockUntil=performance.now()+500;}
+    if(!c.train&&total>=REST_N){end();return;}
+    next();}
+  function key(k){
+    if(!c||ended||performance.now()<lockUntil)return;
+    if(k==='del'){inp=inp.slice(0,-1);draw();return;}
+    if(k==='skip'){answer(false);return;}
+    if(inp.length>=6)return;
+    inp+=k;draw();
+    if(inp.length>=q.ans.length)answer(inp===q.ans);}
+  function down(e){const b=e.target.closest('[data-k]');if(!b||!c)return;e.preventDefault();
+    if(c.effects.press)fxFlash(b,'press',120);key(b.dataset.k);}
+  function onKey(e){if(/^[0-9]$/.test(e.key)){e.preventDefault();key(e.key);}else if(e.key==='Backspace'){e.preventDefault();key('del');}}
+  function end(){if(ended)return;ended=true;clearInterval(tick);
+    c.finish({score:right,timeMs:c.train?DUR:undefined,extra:{right,wrong,total}});}
+  return{
+    id:'mental',title:'Счёт в уме на время',section:'count',ownTimer:true,
+    desc:'Решайте примеры в уме и набирайте ответ на кнопках — он проверяется сам. Тренировка: сколько верных ответов за 60 секунд. Отдых: 10 примеров без спешки.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'Сложение и вычитание до 20'},{id:'2',name:'Средний',hint:'Сложение и вычитание до 100'},
+            {id:'3',name:'Таблица умножения',hint:'Умножение и деление до 9×9'},{id:'4',name:'Сложный',hint:'Трёхзначные числа, умножение до 25×9'}],
+    score:{unit:'верных ответов за минуту',short:'верн.',better:'high'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая кнопка на мгновение подсвечивается'},
+             {id:'right',name:'Подсветка верного ответа',hint:'Пример на мгновение подсвечивается зелёным'},
+             {id:'error',name:'Подсветка ошибки',hint:'Пример на мгновение подсвечивается красным'}],
+    summary:r=>r.extra?`Ошибок: <b>${r.extra.wrong}</b> · всего примеров: ${r.extra.total}`:'',
+    start(ctx){
+      c=ctx;root=ctx.root;right=0;wrong=0;total=0;inp='';prevT='';ended=false;lockUntil=0;
+      box=document.createElement('div');box.className='ct';
+      box.innerHTML=`<div class="ct-top"><div class="ct-q"></div><div class="ct-m"></div></div>
+        <div class="ct-k">${['1','2','3','4','5','6','7','8','9'].map(d=>`<button data-k="${d}">${d}</button>`).join('')}
+        <button data-k="del" class="fn" aria-label="Стереть">⌫</button><button data-k="0">0</button><button data-k="skip" class="fn">Пропуск</button></div>`;
+      box.addEventListener('pointerdown',down);addEventListener('keydown',onKey);
+      root.appendChild(box);ctx.startTimer();next();
+      if(ctx.train)tick=setInterval(()=>{if(!c)return;info();if(c.elapsed()>=DUR)end();},200);},
+    stop(){clearInterval(tick);clearTimeout(msgT);if(box)box.removeEventListener('pointerdown',down);removeEventListener('keydown',onKey);box=null;c=null;root=null;}
   };
 })());
 
@@ -489,7 +635,7 @@ function runEx(mod,mode,level){
   $('#backBtn').classList.remove('hidden');
   const train=mode==='train';
   view.innerHTML=`
-    <div class="strip"><span id="exInfo"></span>${train?'<span class="tm" id="exTime">00:00.0</span>':`<span class="tag rest">Отдых</span>`}</div>
+    <div class="strip"><span id="exInfo"></span>${train?(mod.ownTimer?'':'<span class="tm" id="exTime">00:00.0</span>'):`<span class="tag rest">Отдых</span>`}</div>
     <div class="exroot" id="exRoot"></div>
     <button class="big alt" id="exStop">Завершить</button>`;
   let t0=null,tStop=null;
