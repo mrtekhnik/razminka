@@ -136,6 +136,22 @@ main.run #exStop{min-height:48px;margin:0;flex:none}
 .br-bar{height:12px;border-radius:6px;background:#e3e8ef;overflow:hidden;margin:10px 0}
 .br-bar i{display:block;height:100%;width:0;background:#3a9a52}
 .br .big{margin:0}
+/* разминка */
+.big.warm{flex-direction:column;gap:2px;min-height:72px}
+.big.warm small{font-weight:400;font-size:14px;opacity:.9}
+.wi{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px;min-height:60px}
+.wi .dot{width:12px;height:36px;border-radius:6px;flex:none}
+.wi span.small{display:block}
+.wi .wst{margin-left:auto;font-size:22px;color:var(--ok);font-weight:700}
+.wi.done{background:#f1f8f3}.wi.next{border-color:var(--accent);border-width:2px}
+/* статистика */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.kpis div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpis b{display:block;font-size:26px}
+.kpis span{font-size:13px;color:var(--muted)}
+svg.chart{width:100%;height:auto;display:block}
+.sec.skill{align-items:flex-start}
+.sec.skill .dot{align-self:stretch}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -180,7 +196,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.13',APP_DATE='17.11.2026';
+const APP_VERSION='0.14',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -236,10 +252,11 @@ const Store=(()=>{
   // миграции: MIGRATIONS[n] переводит данные из версии n в n+1
   const MIGRATIONS={};
   let data=null,readOnly=false;
-  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{},effects:{},saved:{},options:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
+  const fresh=()=>({schema:SCHEMA,results:[],warmups:[],settings:{mode:'train',levels:{},effects:{},saved:{},options:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
   function normalize(d){
     const f=fresh();
     d.results=Array.isArray(d.results)?d.results:[];
+    d.warmups=Array.isArray(d.warmups)?d.warmups:[];
     d.settings=Object.assign(f.settings,d.settings&&typeof d.settings==='object'?d.settings:{});
     if(!d.settings.levels||typeof d.settings.levels!=='object')d.settings.levels={};
     if(!d.settings.effects||typeof d.settings.effects!=='object')d.settings.effects={};
@@ -354,7 +371,12 @@ const Stats=(()=>{
     let last=null;for(const r of rs)if(!last||r.date>last)last=r.date;
     return{count:rs.length,train:rs.filter(r=>r.mode==='train').length,rest:rs.filter(r=>r.mode==='rest').length,last};}
   const recent=n=>all().slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,n);
-  return{make,valid,add,all,best,sectionSummary,recent};
+  // дней подряд с занятиями: до сегодня, а если сегодня ещё не занимались — до вчера
+  function streak(){
+    const days=new Set(all().map(r=>Warmup.dayKey(new Date(r.date))));
+    const d=new Date();d.setHours(12,0,0,0);if(!days.has(Warmup.dayKey(d)))d.setDate(d.getDate()-1);
+    let n=0;while(days.has(Warmup.dayKey(d))){n++;d.setDate(d.getDate()-1);}return n;}
+  return{make,valid,add,all,best,sectionSummary,recent,streak};
 })();
 
 /* =====================================================================
@@ -439,7 +461,7 @@ Registry.register((()=>{
     const avg=times.reduce((a,b)=>a+b,0)/times.length;
     c.finish({score:Math.round(avg),extra:{attempts:times.map(Math.round),best:Math.round(Math.min(...times)),falseStarts:falses,errors:misses}});}
   return{
-    id:'reaction',title:'Время реакции',section:'reaction',
+    id:'reaction',title:'Время реакции',section:'reaction',warmup:{min:0.5},
     desc:'Поле серое — ждите. Как только станет зелёным, нажмите на него как можно быстрее. Нажатие раньше времени — фальстарт.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'3 попытки'},{id:'2',name:'Средний',hint:'5 попыток'},{id:'3',name:'Выбор',hint:'5 попыток, на красный не нажимать'}],
@@ -484,7 +506,7 @@ Registry.register((()=>{
       if(found===pairs)c.finish({score:moves,extra:{pairs,moves}});
     }else{info();tm=setTimeout(closeOpen,900);}}
   return{
-    id:'pairs',title:'Пары (мемори)',section:'memory',
+    id:'pairs',title:'Пары (мемори)',section:'memory',warmup:{maxLevel:'2',min:1.5},
     desc:'Открывайте по две карточки. Одинаковые остаются открытыми, разные закрываются. Найдите все пары за наименьшее число ходов.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'12 карточек, 6 пар'},{id:'2',name:'Средний',hint:'16 карточек, 8 пар'},{id:'3',name:'Сложный',hint:'20 карточек, 10 пар'},{id:'4',name:'Эксперт',hint:'30 карточек, 15 пар'}],
@@ -554,7 +576,7 @@ Registry.register((()=>{
   function end(){if(ended)return;ended=true;clearInterval(tick);
     c.finish({score:right,timeMs:c.train?DUR:undefined,extra:{right,wrong,total}});}
   return{
-    id:'mental',title:'Счёт в уме на время',section:'count',ownTimer:true,
+    id:'mental',title:'Счёт в уме на время',section:'count',ownTimer:true,warmup:{min:1},
     desc:'Решайте примеры в уме и набирайте ответ на кнопках — он проверяется сам. Тренировка: сколько верных ответов за 60 секунд. Отдых: 10 примеров без спешки.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'Сложение и вычитание до 20'},{id:'2',name:'Средний',hint:'Сложение и вычитание до 100'},
@@ -656,7 +678,7 @@ Registry.register((()=>{
       sel=e.key==='ArrowUp'?((r+8)%9)*9+cc:e.key==='ArrowDown'?((r+1)%9)*9+cc:e.key==='ArrowLeft'?r*9+(cc+8)%9:r*9+(cc+1)%9;}draw();}
     else if(e.key==='n'||e.key==='т'){noteMode=!noteMode;draw();}}
   return{
-    id:'sudoku',title:'Судоку',section:'logic',
+    id:'sudoku',title:'Судоку',section:'logic',warmup:false,
     desc:'Заполните клетки цифрами 1–9 так, чтобы в каждой строке, столбце и квадрате 3×3 все цифры были разными. Нажмите клетку, затем цифру; та же цифра ещё раз — стереть. «Заметки» — мелкие пометки для себя.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'38 открытых цифр'},{id:'2',name:'Средний',hint:'32 открытые цифры'},{id:'3',name:'Сложный',hint:'28 открытых цифр'},{id:'4',name:'Эксперт',hint:'около 25 открытых цифр'}],
@@ -733,7 +755,7 @@ Registry.register((()=>{
     else if(e.key==='ArrowLeft'&&cc<n-1)p=em+1;else if(e.key==='ArrowRight'&&cc>0)p=em-1;
     if(p>=0){e.preventDefault();moveFrom(p);}}
   return{
-    id:'fifteen',title:'Пятнашки',section:'space',
+    id:'fifteen',title:'Пятнашки',section:'space',warmup:{maxLevel:'1',min:1},
     desc:'Расставьте плитки по порядку слева направо и сверху вниз, пустое место — в правом нижнем углу. Нажмите плитку рядом с пустым местом (или в том же ряду), чтобы сдвинуть её.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'3×3, плитки 1–8'},{id:'2',name:'Классический',hint:'4×4, плитки 1–15'},{id:'3',name:'Сложный',hint:'5×5, плитки 1–24'}],
@@ -766,7 +788,7 @@ Registry.register((()=>{
   function update(){
     if(!c||ended)return;
     const cycMs=pat.reduce((a,p)=>a+p[1],0)*1000,el=c.elapsed(),inC=el%cycMs;cyc=Math.floor(el/cycMs);
-    if(c.train&&el>=DUR&&inC<200){end();return;}   // заканчиваем на границе цикла после 3 минут
+    if((c.train||c.warmup)&&el>=(c.warmup?60000:DUR)&&inC<200){end();return;}   // заканчиваем на границе цикла (3 мин; в разминке 1 мин)
     let acc=0,ph=0;while(inC>=acc+pat[ph][1]*1000){acc+=pat[ph][1]*1000;ph++;}
     const into=inC-acc,len=pat[ph][1]*1000,name=pat[ph][0];
     const key=cyc*10+ph;
@@ -778,11 +800,11 @@ Registry.register((()=>{
       let k;if(name==='Вдох')k=into/len;else if(name==='Выдох')k=1-into/len;else k=ph>0&&pat[ph-1][0]==='Вдох'?1:0;
       box.querySelector('.br-c').style.transform=`scale(${(0.45+0.55*k).toFixed(3)})`;}
     if(c.train){const sec=Math.ceil(Math.max(0,DUR-el)/1000);c.setInfo(`Осталось: ${Math.floor(sec/60)}:${pad2(sec%60)} · циклов: ${cyc}`);}
-    else c.setInfo('Дышите спокойно');}
+    else c.setInfo(c.warmup?'Дышите спокойно · около минуты':'Дышите спокойно');}
   function end(){if(ended)return;ended=true;clearInterval(tick);
     c.finish({score:cyc,timeMs:c.train?Math.round(c.elapsed()):undefined,extra:{cycles:cyc}});}
   return{
-    id:'breath',title:'Дыхание по ритму',section:'rest',ownTimer:true,levelLabel:'Ритм',
+    id:'breath',title:'Дыхание по ритму',section:'rest',ownTimer:true,levelLabel:'Ритм',warmup:{mode:'rest',min:1},
     desc:'Дышите по подсказкам на экране: вдох, задержка, выдох. Вдох — носом, выдох — спокойно и полностью. Тренировка — 3 минуты, отдых — сколько захочется.',
     modes:['rest','train'],
     levels:[{id:'1',name:'Ровное',hint:'вдох 4 · выдох 4'},{id:'2',name:'Квадрат',hint:'вдох 4 · пауза 4 · выдох 4 · пауза 4'},
@@ -812,7 +834,7 @@ let running=null; // запущенное упражнение
 
 let cur={s:'home'},curD=0;
 const isHome=st=>!st||st.s==='home';
-const depthOf=st=>st.s==='run'?3:st.s==='ex'?2:isHome(st)?0:1;
+const depthOf=st=>st.s==='run'?3:st.s==='ex'||st.s==='sstats'||st.s==='wrun'?2:isHome(st)?0:1;
 const appState=(scr,d)=>({app:APP_ID,d,scr});
 // состояние записи истории → экран (понимает и записи прошлых версий)
 function fromHist(h){
@@ -838,6 +860,7 @@ addEventListener('popstate',e=>{
   curD=f.d;
   if(wasModal&&same)return;                 // закрыли окно — экран под ним не трогаем (игра не перезапускается)
   if(f.scr.s==='run'&&f.d>0){cur={s:'ex',p:f.scr.p};curD=f.d-1;show(cur);selfBack();return;} // на запись игры — к выбору уровня
+  if(f.scr.s==='wrun'&&f.d>0){cur={s:'warm'};curD=f.d-1;show(cur);selfBack();return;}            // на запись разминки — к её экрану
   cur=f.scr;show(cur);
 });
 $('#backBtn').onclick=goBack;
@@ -845,7 +868,7 @@ $('#backBtn').onclick=goBack;
 /* Автосохранение незаконченной партии (для упражнений с save()): каждые 5 с, при уходе из приложения
    и при выходе с экрана игры. Хранится, пока партию не закончат или не начнут новую. */
 function autosave(){
-  if(!running||!running.mod.save||running.ctx._dead||running.ctx.done)return;
+  if(!running||!running.mod.save||running.ctx._dead||running.ctx.done||running.ctx.warmup)return;
   try{const st=running.mod.save();if(!st)return;
     Store.settings().saved[running.mod.id]={mode:running.ctx.mode,level:running.ctx.level.id,elapsed:Math.round(running.ctx.elapsed()),state:st,date:new Date().toISOString()};
     Store.save();}catch(e){console.error(e);}}
@@ -862,6 +885,7 @@ function stopRunning(){
 
 function show(st){
   stopRunning();view.classList.remove('run');
+  if(st.s==='wrun'){$('#backBtn').classList.remove('hidden');scrollTo(0,0);return runWarm();}
   if(st.s==='run'){const m=Registry.get(st.p);if(!m)return goHome();
     $('#backBtn').classList.remove('hidden');scrollTo(0,0);
     const sv=st.cont&&savedOf(m);
@@ -872,17 +896,22 @@ function show(st){
   if(st.s==='section')return renderSection(st.p);
   if(st.s==='ex')return renderExIntro(st.p);
   if(st.s==='stats')return renderStats();
+  if(st.s==='sstats')return renderSectionStats(st.p);
+  if(st.s==='warm')return renderWarm();
   return renderHome();}
 
+function warmSub(){
+  if(Warmup.doneToday())return 'выполнена сегодня ✓';
+  const w=Warmup.cur();return (w.started?`пройдено ${w.idx} из ${w.items.length} · `:'')+w.items.map(id=>Registry.get(id).title.replace(/ \(.*\)| на время/g,'')).join(', ');}
 function renderHome(){
   view.innerHTML=`
-    <button class="big off" id="warmBtn">Разминка на 5 минут</button>
+    <button class="big warm" id="warmBtn"><span>Разминка на 5 минут</span><small>${warmSub()}</small></button>
     ${SECTIONS.map(s=>{const all=Registry.bySection(s.id),n=all.filter(m=>!m.test).length,t=all.length-n,sm=Stats.sectionSummary(s.id);
       return `<button class="sec" data-sec="${s.id}"><span class="dot" style="background:${s.color}"></span>
         <span><div class="nm">${esc(s.name)}</div><div class="ds">${n?`Упражнений: ${n}`:t?'Тестовое упражнение':'Упражнения скоро'}${sm.count?` · занятий: ${sm.count}`:''}</div></span>
         <svg class="i go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`;}).join('')}
     <button class="big alt" id="statsBtn">Статистика</button>`;
-  $('#warmBtn').onclick=()=>toast('«Разминка на 5 минут» появится на этапе 2');
+  $('#warmBtn').onclick=()=>go({s:'warm'});
   $('#statsBtn').onclick=()=>go({s:'stats'});
   view.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>go({s:'section',p:b.dataset.sec}));}
 
@@ -936,7 +965,7 @@ function renderExIntro(id){
 
 const fmtNum=n=>n==null?'—':(Math.round(n*10)/10).toString().replace('.',',');
 
-function runEx(mod,mode,level,resume){
+function runEx(mod,mode,level,resume,opts){
   stopRunning();view.classList.add('run');
   $('#backBtn').classList.remove('hidden');
   const train=mode==='train';
@@ -945,7 +974,7 @@ function runEx(mod,mode,level,resume){
     <div class="exroot" id="exRoot"></div>
     <button class="big alt" id="exStop">Завершить</button>`;
   let t0=null,tStop=null;
-  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),options:optState(mod),_dead:false,resume:resume?resume.state:null,
+  const ctx={root:$('#exRoot'),mode,level,train,effects:fxState(mod),options:optState(mod),warmup:!!(opts&&opts.warm),_dead:false,resume:resume?resume.state:null,
     setInfo:t=>{if(!ctx._dead)$('#exInfo').textContent=t;},
     startTimer:()=>{t0=performance.now()-(resume&&resume.elapsed||0);tStop=null;},
     elapsed:()=>t0==null?0:((tStop??performance.now())-t0),
@@ -955,9 +984,10 @@ function runEx(mod,mode,level,resume){
       stopRunning();guardClicks();
       const rec=Stats.make(mod,mode,level,res);
       const saved=Stats.add(rec);
+      if(opts&&opts.onDone)return opts.onDone(mod,mode,level,rec,saved);
       showResult(mod,mode,level,rec,saved);}};
   running={mod,ctx,tick:train?setInterval(()=>{const e=$('#exTime');if(e&&t0!=null)e.textContent=fmtTimer(ctx.elapsed());},100):0,
-    saveTick:mod.save?setInterval(autosave,5000):0};
+    saveTick:mod.save&&!(opts&&opts.warm)?setInterval(autosave,5000):0};
   $('#exStop').onclick=async()=>{
     if(mod.save&&running&&running.ctx===ctx){
       const k=await choose('Завершить партию?','Незаконченную партию можно сохранить и продолжить позже.',
@@ -998,18 +1028,190 @@ let clickGuardUntil=0;
 const guardClicks=(ms=450)=>{clickGuardUntil=performance.now()+ms;};
 document.addEventListener('click',e=>{if(performance.now()<clickGuardUntil){e.stopPropagation();e.preventDefault();}},true);
 
+/* =====================================================================
+   6а. РАЗМИНКА НА 5 МИНУТ. Набор дня — 4 упражнения из разных разделов.
+   В приоритете разделы, которыми давно не занимались, поэтому наборы чередуются день ото дня.
+   Набор собирается один раз за день (можно попросить «Другой набор», пока разминка не начата).
+   Упражнение может задать warmup:false (не входит, например судоку — слишком долго)
+   или warmup:{maxLevel:'1', mode:'rest'} — ограничить уровень / режим в разминке.
+   ===================================================================== */
+const Warmup=(()=>{
+  const N=4;
+  const dayKey=(d=new Date())=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  function rng(seed){let h=2166136261;for(const ch of seed){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
+    return()=>{h+=0x6D2B79F5;let t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
+  const eligible=()=>Registry.all().filter(m=>!m.test&&m.warmup!==false);
+  function lastDone(sec){let l='';for(const r of Stats.all())if(r.section===sec&&r.date>l)l=r.date;return l;}
+  function build(date,seed){
+    const R=rng(date+'#'+seed),bySec={};
+    for(const m of eligible())(bySec[m.section]=bySec[m.section]||[]).push(m);
+    let secs=Object.keys(bySec).map(s=>{const l=lastDone(s),k=R();
+      return{s,k,p:(l?Math.min(30,(Date.now()-new Date(l))/864e5):30)+k*2};});
+    secs.sort((a,b)=>b.p-a.p);secs=secs.slice(0,N).sort((a,b)=>a.k-b.k);
+    const ri=secs.findIndex(x=>x.s==='rest');if(ri>=0)secs.push(secs.splice(ri,1)[0]);   // отдых — в конце
+    return secs.map(x=>{const a=bySec[x.s];return a[Math.floor(R()*a.length)].id;});}
+  function cur(){
+    const st=Store.settings();let w=st.warm;
+    if(!w||w.date!==dayKey()||!Array.isArray(w.items)||w.items.some(id=>!Registry.get(id))){
+      w=st.warm={date:dayKey(),seed:0,items:build(dayKey(),0),idx:0,res:[],started:false,done:false};Store.save();}
+    return w;}
+  function reroll(){const w=cur();if(w.started&&!w.done)return;w.seed++;w.items=build(w.date,w.seed);w.idx=0;w.res=[];w.started=false;w.done=false;Store.save();}
+  function restart(){const w=cur();w.idx=0;w.res=[];w.started=false;w.done=false;Store.save();}
+  function levelFor(m){const l=curLevel(m),mx=m.warmup&&m.warmup.maxLevel;
+    if(!mx)return l;const iL=m.levels.indexOf(l),iM=m.levels.findIndex(x=>x.id===mx);return iM>=0&&iL>iM?m.levels[iM]:l;}
+  function modeFor(m){const wm=Store.settings().warmMode==='rest'?'rest':'train';
+    const f=m.warmup&&m.warmup.mode;return f&&m.modes.includes(f)?f:(m.modes.includes(wm)?wm:m.modes[0]);}
+  const minutes=m=>(m.warmup&&m.warmup.min)||1;
+  // занятие засчитано
+  function record(rec){const w=cur();w.res[w.idx]=rec?rec.id:null;w.idx++;w.started=true;
+    if(w.idx>=w.items.length&&!w.done){w.done=true;
+      Store.data.warmups=Store.data.warmups||[];
+      Store.data.warmups.push({id:uid(),date:new Date().toISOString(),items:w.items.slice(),results:w.res.slice(),mode:Store.settings().warmMode==='rest'?'rest':'train'});}
+    Store.save();}
+  const doneToday=()=>{const w=Store.settings().warm;return!!(w&&w.date===dayKey()&&w.done);};
+  return{cur,reroll,restart,levelFor,modeFor,minutes,record,doneToday,dayKey,build,N};
+})();
+
+function renderWarm(){
+  const w=Warmup.cur(),wm=Store.settings().warmMode==='rest'?'rest':'train';
+  const mins=w.items.reduce((a,id)=>a+Warmup.minutes(Registry.get(id)),0);
+  view.innerHTML=`<h2>Разминка на 5 минут</h2>
+    <div class="card small">Набор на сегодня: по одному упражнению из разных разделов, примерно ${Math.round(mins)} мин. Упражнения идут одно за другим, в конце — итог.</div>
+    <div class="lbl">Режим</div>
+    <div class="seg">${['train','rest'].map(m=>`<button data-wm="${m}" class="${m===wm?'on':''}" ${w.started&&!w.done?'disabled':''}>${MODES[m]}</button>`).join('')}</div>
+    <div class="lbl">Упражнения</div>
+    ${w.items.map((id,i)=>{const m=Registry.get(id),s=secById(m.section),lv=Warmup.levelFor(m),md=Warmup.modeFor(m);
+      const st=w.done||i<w.idx?'done':i===w.idx&&w.started?'next':'';
+      return `<div class="wi ${st}"><span class="dot" style="background:${s.color}"></span><span><b>${i+1}. ${esc(m.title)}</b>
+        <span class="small muted">${esc(s.name)} · ${esc(lv.name)}${md!==wm?` · ${MODES[md]}`:''}</span></span><span class="wst">${st==='done'?'✓':''}</span></div>`;}).join('')}
+    ${w.done?`<div class="card small" style="border-color:var(--ok);background:#e9f7ee"><b>Разминка на сегодня выполнена ✓</b></div>`:''}
+    <div class="startbar">${w.done?`<button class="big" id="wAgain">Пройти ещё раз</button>`
+      :w.started?`<button class="big" id="wGo">Продолжить (${w.idx+1} из ${w.items.length})</button><button class="big alt" id="wRestart" style="margin-top:8px;min-height:50px">Начать заново</button>`
+      :`<button class="big" id="wGo">Начать</button><button class="big alt" id="wReroll" style="margin-top:8px;min-height:50px">Другой набор</button>`}</div>`;
+  view.querySelectorAll('[data-wm]').forEach(x=>x.onclick=()=>{Store.settings().warmMode=x.dataset.wm;Store.save();renderWarm();});
+  const g=$('#wGo');if(g)g.onclick=()=>go({s:'wrun'});
+  const rr=$('#wReroll');if(rr)rr.onclick=()=>{Warmup.reroll();renderWarm();};
+  const rs=$('#wRestart');if(rs)rs.onclick=async()=>{if(await confirmAsk('Начать разминку заново?','Уже пройденные упражнения останутся в статистике.','Начать заново')){Warmup.restart();renderWarm();}};
+  const ag=$('#wAgain');if(ag)ag.onclick=()=>{Warmup.restart();go({s:'wrun'});};}
+
+// запуск текущего упражнения разминки
+function runWarm(){
+  const w=Warmup.cur();
+  if(w.idx>=w.items.length)return showWarmSummary();
+  const m=Registry.get(w.items[w.idx]);
+  runEx(m,Warmup.modeFor(m),Warmup.levelFor(m),null,{warm:true,onDone:(mod,mode,level,rec,saved)=>{Warmup.record(rec);showWarmStep(mod,mode,level,rec);}});
+  $('#exInfo').insertAdjacentHTML('beforebegin',`<span class="tag" style="margin-right:6px">${w.idx+1}/${w.items.length}</span>`);}
+
+function resultLine(mod,mode,rec){
+  if(rec.extra&&rec.extra.lost)return '<span style="color:var(--danger)">Не решено</span>';
+  if(mode==='rest'||rec.score==null)return '<span style="color:var(--ok)">Готово</span>';
+  return `<b>${fmtNum(rec.score)}</b> ${esc(mod.score.short||mod.score.unit)}`;}
+
+function showWarmStep(mod,mode,level,rec){
+  view.classList.remove('run');
+  const w=Warmup.cur();
+  if(w.idx>=w.items.length)return showWarmSummary();
+  const nx=Registry.get(w.items[w.idx]);
+  view.innerHTML=`<h2>Разминка · ${w.idx} из ${w.items.length}</h2>
+    <div class="card res"><div class="small muted">${esc(mod.title)}</div><div class="sc" style="font-size:38px">${resultLine(mod,mode,rec)}</div></div>
+    <button class="big" id="wNext">Далее: ${esc(nx.title)}</button>
+    <button class="big alt" id="wStop">Прервать разминку</button>`;
+  $('#wNext').onclick=()=>runWarm();
+  $('#wStop').onclick=goBack;}
+
+function showWarmSummary(){
+  view.classList.remove('run');
+  const w=Warmup.cur(),byId=new Map(Stats.all().map(r=>[r.id,r]));
+  let total=0;
+  const rows=w.items.map((id,i)=>{const m=Registry.get(id),r=byId.get(w.res[i]);if(r&&r.timeMs)total+=r.timeMs;
+    return `<tr><td>${esc(m.title)}<div class="muted small">${esc(secById(m.section).name)}</div></td><td style="text-align:right">${r?resultLine(m,r.mode,r):'—'}</td></tr>`;}).join('');
+  view.innerHTML=`<h2>Разминка выполнена ✓</h2>
+    <div class="card"><table class="st">${rows}</table>${total?`<div class="small muted" style="margin-top:8px">Время в упражнениях: ${fmtTime(total)}</div>`:''}</div>
+    <div class="card small">Дней подряд с занятиями: <b>${Stats.streak()}</b> · разминок всего: <b>${(Store.data.warmups||[]).length}</b></div>
+    <button class="big" id="wHome">На главную</button>
+    <button class="big alt" id="wStats">Статистика</button>`;
+  $('#wHome').onclick=goHome;$('#wStats').onclick=()=>go({s:'stats'});}
+
+/* =====================================================================
+   6б. СТАТИСТИКА ПО НАВЫКАМ: общее, активность за 14 дней, разделы с динамикой,
+   экран раздела с лучшими результатами и графиком по уровням.
+   Динамика: среднее последних занятий против предыдущих (до 5 и 5), «выше — лучше» всегда.
+   ===================================================================== */
+const localDay=iso=>Warmup.dayKey(new Date(iso));
+function trainSeries(exId,levelId){return Stats.all().filter(r=>r.ex===exId&&r.mode==='train'&&r.score!=null&&r.level===String(levelId)).sort((a,b)=>a.date<b.date?-1:1);}
+function mainLevel(mod){const c={};for(const r of Stats.all())if(r.ex===mod.id&&r.mode==='train'&&r.score!=null)c[r.level]=(c[r.level]||0)+1;
+  let best=null;for(const k in c)if(!best||c[k]>c[best])best=k;return best;}
+// изменение в долях: >0 — стало лучше
+function trend(mod,levelId){
+  const s=trainSeries(mod.id,levelId);if(s.length<4)return null;
+  const k=Math.min(5,Math.floor(s.length/2)),rec=s.slice(-k),prev=s.slice(-2*k,-k);
+  const avg=a=>a.reduce((x,r)=>x+r.score,0)/a.length,ra=avg(rec),pa=avg(prev);if(!pa)return null;
+  return mod.score.better==='low'?(pa-ra)/pa:(ra-pa)/pa;}
+function trendHtml(t){
+  if(t==null)return '<span class="muted">мало данных</span>';
+  const p=Math.round(Math.abs(t)*100);
+  if(p<3)return '<span class="muted">→ без изменений</span>';
+  return t>0?`<span style="color:var(--ok)">↑ лучше на ${p}%</span>`:`<span style="color:var(--danger)">↓ хуже на ${p}%</span>`;}
+function sectionTrend(secId){const ts=[];for(const m of Registry.bySection(secId)){const l=mainLevel(m);if(l){const t=trend(m,l);if(t!=null)ts.push(t);}}
+  return ts.length?ts.reduce((a,b)=>a+b,0)/ts.length:null;}
+function activity(days){const cnt={};for(const r of Stats.all()){const k=localDay(r.date);cnt[k]=(cnt[k]||0)+1;}
+  const out=[];for(let i=days-1;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);out.push({d,n:cnt[Warmup.dayKey(d)]||0});}return out;}
+function barsSvg(act){
+  const W=300,T=12,H=90,bw=W/act.length,mx=Math.max(1,...act.map(a=>a.n));
+  return `<svg class="chart" viewBox="0 0 ${W} ${T+H+16}" role="img" aria-label="Занятия по дням"><g transform="translate(0,${T})">${act.map((a,i)=>{const h=a.n?Math.max(3,a.n/mx*H):0;
+    return `<rect x="${i*bw+2}" y="${H-h}" width="${bw-4}" height="${h}" rx="2" fill="#1f6feb"/>${a.n?`<text x="${i*bw+bw/2}" y="${H-h-3}" text-anchor="middle" font-size="9" fill="#3b4656">${a.n}</text>`:''}
+      <text x="${i*bw+bw/2}" y="${H+12}" text-anchor="middle" font-size="9" fill="#6b7686">${a.d.getDate()}</text>`;}).join('')}
+    <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="#d9dee5"/></g></svg>`;}
+function lineSvg(mod,series){
+  const s=series.slice(-30);if(s.length<2)return '<div class="small muted">Для графика нужно хотя бы 2 результата.</div>';
+  const low=mod.score.better==='low',W=300,H=110,P=8,v=s.map(r=>r.score),mn=Math.min(...v),mx=Math.max(...v),rg=mx-mn||1;
+  const y=x=>{const k=(x-mn)/rg;return P+(low?k:1-k)*(H-2*P);},X=i=>P+i*(W-2*P)/(s.length-1);
+  const pts=s.map((r,i)=>`${X(i).toFixed(1)},${y(r.score).toFixed(1)}`).join(' ');
+  const bi=v.indexOf(low?mn:mx);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Результаты">
+    <polyline points="${pts}" fill="none" stroke="#1f6feb" stroke-width="2"/>
+    ${s.map((r,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${y(r.score).toFixed(1)}" r="${i===bi?4.5:2.5}" fill="${i===bi?'#1a8a4a':'#1f6feb'}"/>`).join('')}</svg>
+    <div class="small muted" style="display:flex;justify-content:space-between"><span>${fmtDate(s[0].date).slice(0,5)}</span><span>${fmtDate(s[s.length-1].date).slice(0,5)}</span></div>
+    <div class="small muted" style="text-align:center">выше — лучше · зелёная точка — лучший результат</div>`;}
+
 function renderStats(){
-  const rs=Stats.recent(30);
+  const all=Stats.all(),days=new Set(all.map(r=>localDay(r.date))),week=Date.now()-7*864e5;
+  const rs=Stats.recent(20);
   view.innerHTML=`<h2>Статистика</h2>
-    <div class="card"><table class="st">${SECTIONS.map(s=>{const sm=Stats.sectionSummary(s.id);
-      return `<tr><td><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:5px;background:${s.color}"></span> ${esc(s.name)}</td>
-        <td style="text-align:right">${sm.count?`<b>${sm.count}</b><div class="muted small" style="white-space:nowrap">трен. ${sm.train} · отдых ${sm.rest}</div><div class="muted small" style="white-space:nowrap">${fmtDate(sm.last)}</div>`:'<span class="muted">—</span>'}</td></tr>`;}).join('')}</table></div>
+    <div class="kpis"><div><b>${all.length}</b><span>занятий</span></div><div><b>${days.size}</b><span>дней с занятиями</span></div>
+      <div><b>${Stats.streak()}</b><span>дней подряд</span></div><div><b>${(Store.data.warmups||[]).length}</b><span>разминок</span></div></div>
+    <div class="lbl">Занятия за 14 дней</div><div class="card">${barsSvg(activity(14))}</div>
+    <div class="lbl">Навыки</div>
+    ${SECTIONS.map(s=>{const sm=Stats.sectionSummary(s.id),w7=all.filter(r=>r.section===s.id&&new Date(r.date)>=week).length;
+      return `<button class="sec skill" data-ss="${s.id}"><span class="dot" style="background:${s.color}"></span>
+        <span style="flex:1"><div class="nm">${esc(s.name)}</div>
+        <div class="ds">${sm.count?`занятий: <b>${sm.count}</b> · за 7 дней: ${w7}<br>трен. ${sm.train} · отдых ${sm.rest} · ${fmtDate(sm.last)}<br>динамика: ${trendHtml(sectionTrend(s.id))}`:'ещё не занимались'}</div></span>
+        <svg class="i go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`;}).join('')}
     <div class="lbl">Последние занятия</div>
     ${rs.length?`<div class="card"><table class="st">${rs.map(r=>{const m=Registry.get(r.ex),lv=m&&m.levels.find(l=>l.id===r.level);
       return `<tr><td>${esc(m?m.title:r.ex)}<div class="muted small">${fmtDate(r.date)} · ${esc(lv?lv.name:'ур. '+r.level)}</div></td>
-        <td style="text-align:right">${r.mode==='rest'?'<span class="tag rest">Отдых</span>':`<b>${fmtNum(r.score)}</b> <span class="small">${esc(m?(m.score.short||m.score.unit):'')}</span><div class="muted small">${fmtTime(r.timeMs)}</div>`}</td></tr>`;}).join('')}</table></div>`
-      :'<div class="card muted">Пока нет занятий.</div>'}
-    <div class="small muted" style="margin:8px 4px">Динамика и лучшие результаты по навыкам появятся на этапе 2.</div>`;}
+        <td style="text-align:right">${r.mode==='rest'?'<span class="tag rest">Отдых</span>':r.extra&&r.extra.lost?'<span class="small" style="color:var(--danger)">не решено</span>':`<b>${fmtNum(r.score)}</b> <span class="small">${esc(m?(m.score.short||m.score.unit):'')}</span><div class="muted small">${fmtTime(r.timeMs)}</div>`}</td></tr>`;}).join('')}</table></div>`
+      :'<div class="card muted">Пока нет занятий.</div>'}`;
+  view.querySelectorAll('[data-ss]').forEach(b=>b.onclick=()=>go({s:'sstats',p:b.dataset.ss}));}
+
+function renderSectionStats(secId,lvSel){
+  const s=secById(secId);if(!s)return renderStats();
+  lvSel=lvSel||{};
+  view.innerHTML=`<h2>${esc(s.name)}</h2>${Registry.bySection(secId).map(m=>{
+    const rs=Stats.all().filter(r=>r.ex===m.id),levels=m.levels.filter(l=>trainSeries(m.id,l.id).length);
+    const lid=lvSel[m.id]&&levels.some(l=>l.id===lvSel[m.id])?lvSel[m.id]:(mainLevel(m)||(levels[0]&&levels[0].id));
+    const ser=lid?trainSeries(m.id,lid):[],b=lid?Stats.best(m.id,lid):null,last=ser[ser.length-1];
+    const avg5=ser.length?ser.slice(-5).reduce((a,r)=>a+r.score,0)/Math.min(5,ser.length):null,u=m.score.short||m.score.unit;
+    return `<div class="card"><div class="nm" style="font-weight:600;font-size:18px">${esc(m.title)}</div>
+      <div class="small muted">Занятий: ${rs.length} (трен. ${rs.filter(r=>r.mode==='train').length}, отдых ${rs.filter(r=>r.mode==='rest').length})</div>
+      ${levels.length?`<div class="seg" style="margin:10px 0">${levels.map(l=>`<button data-sl="${m.id}|${l.id}" class="${l.id===lid?'on':''}">${esc(l.name)}</button>`).join('')}</div>
+      <table class="st"><tr><td>Лучший</td><td style="text-align:right"><b>${fmtNum(b&&b.score)}</b> ${esc(u)}<div class="muted small">${b?fmtDate(b.date):''}</div></td></tr>
+        <tr><td>Последний</td><td style="text-align:right">${fmtNum(last&&last.score)} ${esc(u)}</td></tr>
+        <tr><td>Среднее 5 последних</td><td style="text-align:right">${fmtNum(avg5)} ${esc(u)}</td></tr>
+        <tr><td>Результатов на уровне</td><td style="text-align:right">${ser.length}</td></tr>
+        <tr><td>Динамика</td><td style="text-align:right">${trendHtml(trend(m,lid))}</td></tr></table>
+      ${lineSvg(m,ser)}`:`<div class="small muted" style="margin-top:8px">${rs.length?'Результатов в режиме «Тренировка» пока нет.':'Ещё не занимались.'}</div>`}</div>`;}).join('')}`;
+  view.querySelectorAll('[data-sl]').forEach(x=>x.onclick=()=>{const[e,l]=x.dataset.sl.split('|');lvSel[e]=l;renderSectionStats(secId,lvSel);});}
 
 /* =====================================================================
    7. ЭКСПОРТ И ИМПОРТ статистики (файл .json)
@@ -1017,7 +1219,7 @@ function renderStats(){
 function exportStats(){
   const d=Store.data;
   const file={app:APP_ID,kind:'stats',schema:Store.SCHEMA,appVersion:APP_VERSION,exported:new Date().toISOString(),
-    results:d.results,settings:d.settings};
+    results:d.results,warmups:d.warmups||[],settings:d.settings};
   const blob=new Blob([JSON.stringify(file,null,1)],{type:'application/json'});
   const a=document.createElement('a');const t=new Date();
   a.href=URL.createObjectURL(blob);a.download=`razminka-statistika-${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}.json`;
@@ -1036,7 +1238,8 @@ function parseImport(text){
   let d={schema:sch,results:f.results,settings:f.settings||{}};
   try{d=Store.migrate(d);}catch(e){return{error:'Не удалось перевести файл в текущий формат.'};}
   const ok=d.results.filter(r=>Stats.valid(r)&&r.ex!=='stub');
-  return{results:ok,settings:d.settings,skipped:d.results.length-ok.length};}
+  const wu=(Array.isArray(f.warmups)?f.warmups:[]).filter(w=>w&&typeof w.id==='string'&&typeof w.date==='string'&&Array.isArray(w.items));
+  return{results:ok,warmups:wu,settings:d.settings,skipped:d.results.length-ok.length};}
 
 async function importStats(text){
   if(Store.readOnly){toast('Запись отключена: обновите приложение',4000);return;}
@@ -1051,6 +1254,8 @@ async function importStats(text){
   if(k==='replace'&&!await confirmAsk('Заменить статистику?',`Текущие ${cur.length} занятий будут удалены и заменены данными из файла.`,'Заменить','pri dng'))return;
   const d=Store.data;
   d.results=k==='replace'?p.results.slice():cur.concat(p.results.filter(r=>!have.has(r.id)));
+  const hw=new Set((d.warmups||[]).map(w=>w.id));
+  d.warmups=k==='replace'?p.warmups.slice():(d.warmups||[]).concat(p.warmups.filter(w=>!hw.has(w.id)));
   d.meta.lastImport=new Date().toISOString();
   if(Store.save()){toast(k==='replace'?`Загружено занятий: ${d.results.length}`:`Добавлено занятий: ${newOnes}`,3500);refresh();}}
 
@@ -1103,6 +1308,7 @@ if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catc
 {const f=fromHist(history.state);
   if(!f){history.replaceState(appState({s:'home'},0),'');cur={s:'home'};curD=0;show(cur);}
   else if(f.scr.s==='run'&&f.d>0){cur={s:'ex',p:f.scr.p};curD=f.d-1;show(cur);selfBack();}   // перезагрузка во время игры → к выбору уровня
+  else if(f.scr.s==='wrun'&&f.d>0){cur={s:'warm'};curD=f.d-1;show(cur);selfBack();}
   else{cur=f.scr;curD=f.d;history.replaceState(appState(cur,curD),'');show(cur);}}
 </script>
 </body>
