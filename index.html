@@ -180,7 +180,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.12',APP_DATE='17.11.2026';
+const APP_VERSION='0.13',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -777,7 +777,7 @@ Registry.register((()=>{
     if(c.effects.circle){
       let k;if(name==='Вдох')k=into/len;else if(name==='Выдох')k=1-into/len;else k=ph>0&&pat[ph-1][0]==='Вдох'?1:0;
       box.querySelector('.br-c').style.transform=`scale(${(0.45+0.55*k).toFixed(3)})`;}
-    if(c.train){const left=Math.max(0,DUR-el);c.setInfo(`Осталось: ${Math.floor(left/60000)}:${pad2(Math.ceil(left%60000/1000)%60)} · циклов: ${cyc}`);}
+    if(c.train){const sec=Math.ceil(Math.max(0,DUR-el)/1000);c.setInfo(`Осталось: ${Math.floor(sec/60)}:${pad2(sec%60)} · циклов: ${cyc}`);}
     else c.setInfo('Дышите спокойно');}
   function end(){if(ended)return;ended=true;clearInterval(tick);
     c.finish({score:cyc,timeMs:c.train?Math.round(c.elapsed()):undefined,extra:{cycles:cyc}});}
