@@ -118,7 +118,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.5',APP_DATE='17.11.2026';
+const APP_VERSION='0.6',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -133,17 +133,26 @@ function fmtTimer(ms){const s=Math.floor(ms/1000);return `${pad2(Math.floor(s/60
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function toast(msg,ms=2600){const t=$('#toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.add('hidden'),ms);}
 
+/* История браузера. Приложение само помнит путь по экранам; в историю браузера кладётся
+   не больше одной служебной записи («guard») — пока открыт не главный экран, — и ещё одна, пока открыто окно.
+   Свой шаг назад (selfBack) делается только когда текущая запись точно своя. */
+let modalClose=null,ownBack=null;
+function selfBack(){return new Promise(res=>{
+  const o={done(){if(ownBack!==o)return;ownBack=null;clearTimeout(o.t);res();}};
+  o.t=setTimeout(()=>o.done(),700);ownBack=o;history.back();});}
+async function histSettled(){while(ownBack)await new Promise(r=>setTimeout(r,20));}
+
 /* окно выбора. Кнопка «Назад» телефона закрывает окно, а не уходит с экрана */
-let modalClose=null,ignorePop=false;
-function choose(title,html,opts){
-  if(modalClose)modalClose(true);
+async function choose(title,html,opts){
+  if(modalClose)modalClose();
+  await histSettled();
   return new Promise(res=>{
     const m=$('#modal');
     m.innerHTML=`<div class="dlg" role="dialog"><h3>${esc(title)}</h3>${html?`<div class="dtext">${html}</div>`:''}<div class="dbtns">${opts.map((o,i)=>`<button data-i="${i}" class="${o.cls||''}">${esc(o.l)}</button>`).join('')}</div></div>`;
     m.classList.remove('hidden');
     history.pushState(Object.assign({},history.state,{modal:1}),'');
     const close=(v,fromPop)=>{m.classList.add('hidden');m.innerHTML='';m.onclick=null;modalClose=null;
-      if(!fromPop&&history.state&&history.state.modal){ignorePop=true;history.back();}
+      if(!fromPop&&history.state&&history.state.modal)selfBack();
       res(v);};
     modalClose=fromPop=>close(null,fromPop);
     m.onclick=e=>{if(e.target===m){close(null);return;}const b=e.target.closest('button[data-i]');if(b)close(opts[+b.dataset.i].k);};
@@ -379,13 +388,35 @@ Registry.register((()=>{
 const view=$('#view');
 let running=null; // запущенное упражнение
 
-function go(s,p,extra){const st=Object.assign({s,p},extra||{});history.pushState(st,'');render(st);}
-addEventListener('popstate',e=>{
-  if(ignorePop){ignorePop=false;return;}
+let cur={s:'home'},stack=[];
+const isHome=st=>!st||st.s==='home';
+function parentOf(st){
+  if(st.s==='run')return{s:'ex',p:st.p};
+  if(st.s==='ex'){const m=Registry.get(st.p);return m?{s:'section',p:m.section}:{s:'home'};}
+  return{s:'home'};}
+// привести историю браузера в соответствие с текущим экраном
+async function syncGuard(){
+  await histSettled();
+  const h=history.state||{};
+  if(h.modal)return;
+  if(isHome(cur)){if(h.guard){await selfBack();if(!isHome(cur))syncGuard();}}
+  else if(h.guard)history.replaceState({guard:1,scr:cur},'');
+  else history.pushState({guard:1,scr:cur},'');}
+function go(st){stack.push(cur);cur=st;show(st);syncGuard();}
+function goBack(){
+  if(modalClose){modalClose();return;}
+  cur=stack.pop()||parentOf(cur);show(cur);syncGuard();}
+function goHome(){stack=[];cur={s:'home'};show(cur);syncGuard();}
+function refresh(){if(cur.s!=='run')show(cur);}
+addEventListener('popstate',()=>{
+  if(ownBack){ownBack.done();return;}
   if(modalClose){modalClose(true);return;}
-  render(e.state||{s:'home'});
+  // «Назад» телефона на главном экране: оказались на своей старой записи — идём дальше, к выходу
+  if(isHome(cur)){history.back();return;}
+  // «Назад» на любом другом экране: служебная запись снята — показываем экран выше
+  cur=stack.pop()||parentOf(cur);show(cur);syncGuard();
 });
-$('#backBtn').onclick=()=>history.back();
+$('#backBtn').onclick=goBack;
 
 function stopRunning(){
   if(!running)return;
@@ -393,9 +424,10 @@ function stopRunning(){
   try{running.mod.stop();}catch(e){console.error(e);}
   running=null;}
 
-function render(st){
+function show(st){
   stopRunning();
-  if(!st||st.modal)st={s:'home'};
+  if(st.s==='run'){const m=Registry.get(st.p);if(!m)return goHome();
+    $('#backBtn').classList.remove('hidden');scrollTo(0,0);return runEx(m,curMode(m),curLevel(m));}
   $('#backBtn').classList.toggle('hidden',st.s==='home');
   scrollTo(0,0);
   if(st.s==='section')return renderSection(st.p);
@@ -412,8 +444,8 @@ function renderHome(){
         <svg class="i go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`;}).join('')}
     <button class="big alt" id="statsBtn">Статистика</button>`;
   $('#warmBtn').onclick=()=>toast('«Разминка на 5 минут» появится на этапе 2');
-  $('#statsBtn').onclick=()=>go('stats');
-  view.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>go('section',b.dataset.sec));}
+  $('#statsBtn').onclick=()=>go({s:'stats'});
+  view.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>go({s:'section',p:b.dataset.sec}));}
 
 function renderSection(id){
   const s=secById(id);if(!s)return renderHome();
@@ -423,7 +455,7 @@ function renderSection(id){
     ${mods.map(m=>{const c=Stats.all().filter(r=>r.ex===m.id).length;
       return `<button class="exl" data-ex="${m.id}"><div class="nm">${esc(m.title)}</div><div class="small muted">${esc(m.desc)}</div>${c?`<div class="small muted">Занятий: ${c}</div>`:''}</button>`;}).join('')}
     ${s.planned.filter(t=>!done.has(t)).length?`<div class="lbl">Будут добавлены</div>`+s.planned.filter(t=>!done.has(t)).map(t=>`<div class="soon"><span>${esc(t)}</span><span class="small">скоро</span></div>`).join(''):''}`;
-  view.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>go('ex',b.dataset.ex));}
+  view.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>go({s:'ex',p:b.dataset.ex}));}
 
 function curMode(mod){const m=Store.settings().mode;return mod.modes.includes(m)?m:mod.modes[0];}
 function fxState(mod){const st=Store.settings().effects[mod.id]||{},o={};(mod.effects||[]).forEach(f=>o[f.id]=st[f.id]===true);return o;}
@@ -448,7 +480,7 @@ function renderExIntro(id){
   view.querySelectorAll('[data-mode]').forEach(x=>x.onclick=()=>{Store.settings().mode=x.dataset.mode;Store.save();renderExIntro(id);});
   view.querySelectorAll('[data-fx]').forEach(x=>x.onclick=()=>{fxSet(mod,x.dataset.fx,!fxState(mod)[x.dataset.fx]);renderExIntro(id);});
   view.querySelectorAll('[data-lvl]').forEach(x=>x.onclick=()=>{Store.settings().levels[mod.id]=x.dataset.lvl;Store.save();renderExIntro(id);});
-  $('#startBtn').onclick=()=>{history.pushState({s:'ex',p:id,run:1},'');runEx(mod,mode,level);};}
+  $('#startBtn').onclick=()=>go({s:'run',p:id});}
 
 const fmtNum=n=>n==null?'—':(Math.round(n*10)/10).toString().replace('.',',');
 
@@ -473,7 +505,7 @@ function runEx(mod,mode,level){
       const saved=Stats.add(rec);
       showResult(mod,mode,level,rec,saved);}};
   running={mod,ctx,tick:train?setInterval(()=>{const e=$('#exTime');if(e&&t0!=null)e.textContent=fmtTimer(ctx.elapsed());},100):0};
-  $('#exStop').onclick=()=>{stopRunning();history.back();};
+  $('#exStop').onclick=()=>{stopRunning();goBack();};
   try{mod.start(ctx);}catch(e){console.error(e);stopRunning();toast('Ошибка запуска упражнения');}}
 
 function showResult(mod,mode,level,rec,saved){
@@ -492,14 +524,13 @@ function showResult(mod,mode,level,rec,saved){
     <button class="big alt" id="lvlBtn">Сменить уровень или режим</button>
     <button class="big alt" id="homeBtn">К разделам</button>`;
   $('#againBtn').onclick=()=>runEx(mod,mode,level);
-  $('#lvlBtn').onclick=()=>history.back();
+  $('#lvlBtn').onclick=goBack;
   $('#homeBtn').onclick=goHome;}
 // Защита от «хвостового» клика: упражнение завершается по касанию (pointerdown), экран меняется,
 // а клик того же касания мог бы нажать кнопку на новом экране. Клики сразу после смены экрана игнорируются.
 let clickGuardUntil=0;
 const guardClicks=(ms=450)=>{clickGuardUntil=performance.now()+ms;};
 document.addEventListener('click',e=>{if(performance.now()<clickGuardUntil){e.stopPropagation();e.preventDefault();}},true);
-function goHome(){history.pushState({s:'home'},'');render({s:'home'});}
 
 function renderStats(){
   const rs=Stats.recent(30);
@@ -555,7 +586,7 @@ async function importStats(text){
   const d=Store.data;
   d.results=k==='replace'?p.results.slice():cur.concat(p.results.filter(r=>!have.has(r.id)));
   d.meta.lastImport=new Date().toISOString();
-  if(Store.save()){toast(k==='replace'?`Загружено занятий: ${d.results.length}`:`Добавлено занятий: ${newOnes}`,3500);render(history.state);}}
+  if(Store.save()){toast(k==='replace'?`Загружено занятий: ${d.results.length}`:`Добавлено занятий: ${newOnes}`,3500);refresh();}}
 
 $('#fileIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
   try{await importStats(await f.text());}catch(err){toast('Не удалось прочитать файл');}};
@@ -568,12 +599,12 @@ $('#menuBtn').onclick=async()=>{
   const k=await choose('Меню',
     `Версия ${APP_VERSION} от ${APP_DATE}<br>Занятий в статистике: ${Store.data.results.length}<br>Последнее сохранение в файл: ${m.lastExport?fmtDate(m.lastExport):'—'}`,
     [{k:'st',l:'Статистика'},{k:'ex',l:'Сохранить статистику в файл'},{k:'im',l:'Загрузить статистику из файла'},{k:'clr',l:'Очистить статистику',cls:'dng'},{k:'up',l:'Проверить обновления'},{k:null,l:'Закрыть',cls:'cnl'}]);
-  if(k==='st'){if(!history.state||history.state.s!=='stats')go('stats');}
+  if(k==='st'){if(cur.s!=='stats')go({s:'stats'});}
   else if(k==='ex')exportStats();
   else if(k==='im')$('#fileIn').click();
   else if(k==='clr'){if(Store.readOnly){toast('Запись отключена: обновите приложение');return;}
     if(await confirmAsk('Очистить статистику?','Все занятия будут удалены. Перед этим лучше сохранить статистику в файл.','Удалить всё','pri dng')){
-      Store.data.results=[];Store.save();toast('Статистика очищена');render(history.state);}}
+      Store.data.results=[];Store.save();toast('Статистика очищена');refresh();}}
   else if(k==='up')checkUpdate();
 };
 
@@ -603,7 +634,12 @@ Store.load();
 // результаты тестовой заглушки этапа 0 больше не нужны
 if(!Store.readOnly&&Store.data.results.some(r=>r.ex==='stub')){Store.data.results=Store.data.results.filter(r=>r.ex!=='stub');Store.save();}
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
-{const st=history.state;const start=st&&!st.modal?st:{s:'home'};history.replaceState(start,'');render(start);}
+{const h=history.state;
+  if(h&&h.guard&&h.scr)cur=h.scr;                         // перезагрузка на внутреннем экране
+  else if(h&&h.s&&!h.modal)cur={s:h.s,p:h.p};               // запись от версий до 0.6
+  if(cur.s==='run')cur={s:'ex',p:cur.p};
+  if(!h)history.replaceState({base:1},'');
+  show(cur);syncGuard();}
 </script>
 </body>
 </html>
