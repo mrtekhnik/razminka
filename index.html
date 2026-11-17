@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1d2733">
+<title>Разминка для головы</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#f2f4f7;--card:#fff;--ink:#1b2430;--muted:#6b7686;--line:#d9dee5;--accent:#1f6feb;--danger:#d93a3a;--ok:#1a8a4a;--bar:#1d2733;--barInk:#e9eef5}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:17px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+button:disabled{opacity:.4;cursor:default}
+.hidden{display:none!important}
+svg.i{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+header.top{position:sticky;top:0;z-index:5;background:var(--bar);color:var(--barInk);display:flex;align-items:center;gap:4px;padding:6px 8px;min-height:58px;padding-top:calc(6px + env(safe-area-inset-top))}
+header.top h1{font-size:19px;margin:0 6px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.ibtn{min-width:48px;height:48px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center}
+.ibtn:active{background:rgba(255,255,255,.15)}
+main{max-width:720px;margin:0 auto;padding:12px 12px 90px}
+h2{font-size:21px;margin:6px 4px 12px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
+.big{width:100%;min-height:58px;border-radius:14px;background:var(--accent);color:#fff;font-weight:600;font-size:18px;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 14px;margin-bottom:10px}
+.big.alt{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.big.off{background:#c9d1dc;color:#4b5563}
+.big:active:not(:disabled){filter:brightness(.92)}
+/* разделы */
+.sec{width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;min-height:72px}
+.sec:active{background:#e8edf4}
+.sec .dot{width:14px;align-self:stretch;border-radius:7px;flex:none}
+.sec .nm{font-weight:600;font-size:18px}
+.sec .ds{font-size:14px;color:var(--muted)}
+.sec .go{margin-left:auto;color:var(--muted)}
+.exl{width:100%;text-align:left;display:block;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;min-height:64px}
+.exl:active{background:#e8edf4}
+.exl .nm{font-weight:600;font-size:18px}
+.soon{display:flex;justify-content:space-between;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;margin-bottom:8px;color:var(--muted)}
+/* выбор режима и уровня */
+.seg{display:flex;background:#e3e8ef;border-radius:14px;padding:4px;gap:4px;margin-bottom:12px}
+.seg button{flex:1;min-height:52px;border-radius:11px;font-weight:600;color:#3b4656}
+.seg button.on{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.lvls{display:grid;gap:8px;margin-bottom:12px}
+.lvl{min-height:56px;border-radius:12px;border:2px solid var(--line);background:var(--card);text-align:left;padding:8px 14px}
+.lvl.on{border-color:var(--accent);background:#eaf2ff}
+.lvl b{display:block}
+.lvl span{font-size:14px;color:var(--muted)}
+.lbl{font-size:14px;color:var(--muted);margin:4px 4px 6px}
+/* выполнение упражнения */
+.strip{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:18px;min-height:52px}
+.strip .tm{font-variant-numeric:tabular-nums;font-weight:600}
+.exroot{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;min-height:300px;height:calc(100vh - 290px);height:calc(100dvh - 290px);overflow:hidden;margin-bottom:10px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* итог */
+.res{text-align:center;padding:22px 14px}
+.res .sc{font-size:46px;font-weight:700;color:var(--accent)}
+.res .un{color:var(--muted)}
+.res .rec{color:var(--ok);font-weight:600;margin-top:8px}
+/* статистика */
+table.st{width:100%;border-collapse:collapse;font-size:15px}
+table.st td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top}
+table.st tr:first-child td{border-top:0}
+.tag{display:inline-block;font-size:12px;padding:1px 7px;border-radius:8px;background:#e3e8ef;color:#3b4656}
+.tag.rest{background:#e2f4e8;color:#1a6b3a}
+/* окна, меню, уведомления */
+#modal{position:fixed;inset:0;z-index:20;background:rgba(15,20,28,.55);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+@media(min-width:700px){#modal{align-items:center}}
+.dlg{background:var(--card);border-radius:16px;width:100%;max-width:460px;max-height:90vh;overflow:auto;padding:16px}
+.dlg h3{margin:2px 4px 10px;font-size:19px}
+.dlg .dtext{margin:0 4px 12px;color:#3b4656;font-size:15px}
+.dbtns{display:grid;gap:8px}
+.dbtns button{min-height:54px;border-radius:12px;background:#eef2f7;font-weight:600;text-align:left;padding:8px 16px}
+.dbtns button.pri{background:var(--accent);color:#fff;text-align:center}
+.dbtns button.dng{color:var(--danger)}
+.dbtns button.cnl{background:none;border:1px solid var(--line);text-align:center}
+#toast{pointer-events:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;background:#1b2430;color:#fff;padding:12px 18px;border-radius:12px;max-width:92vw;font-size:15px;text-align:center}
+#updBar{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--bar);color:var(--barInk);display:flex;align-items:center;gap:12px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+#updBar span{flex:1}
+#updBar button{background:var(--accent);color:#fff;border-radius:10px;min-height:48px;padding:0 20px;font-weight:600}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="ibtn hidden" id="backBtn" aria-label="Назад"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <h1 id="appTitle">Разминка для головы</h1>
+  <button class="ibtn" id="menuBtn" aria-label="Меню"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+</header>
+<main id="view"></main>
+<div id="modal" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+<div id="updBar" class="hidden"><span>Доступна новая версия</span><button id="updBtn">Обновить</button></div>
+<input type="file" id="fileIn" class="hidden">
+<script>
+'use strict';
+/* =====================================================================
+   ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
+   ===================================================================== */
+const APP_VERSION='0.1',APP_DATE='17.11.2026';
+const APP_ID='razminka';
+
+/* =====================================================================
+   1. УТИЛИТЫ
+   ===================================================================== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad2=n=>String(n).padStart(2,'0');
+function fmtDate(iso){const d=new Date(iso);if(isNaN(d))return '—';return `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;}
+function fmtTime(ms){if(ms==null)return '—';const s=ms/1000;if(s<60)return s.toFixed(1).replace('.',',')+' с';const m=Math.floor(s/60);return `${m}:${pad2(Math.floor(s%60))} мин`;}
+function fmtTimer(ms){const s=Math.floor(ms/1000);return `${pad2(Math.floor(s/60))}:${pad2(s%60)}.${Math.floor(ms%1000/100)}`;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function toast(msg,ms=2600){const t=$('#toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.add('hidden'),ms);}
+
+/* окно выбора. Кнопка «Назад» телефона закрывает окно, а не уходит с экрана */
+let modalClose=null,ignorePop=false;
+function choose(title,html,opts){
+  if(modalClose)modalClose(true);
+  return new Promise(res=>{
+    const m=$('#modal');
+    m.innerHTML=`<div class="dlg" role="dialog"><h3>${esc(title)}</h3>${html?`<div class="dtext">${html}</div>`:''}<div class="dbtns">${opts.map((o,i)=>`<button data-i="${i}" class="${o.cls||''}">${esc(o.l)}</button>`).join('')}</div></div>`;
+    m.classList.remove('hidden');
+    history.pushState(Object.assign({},history.state,{modal:1}),'');
+    const close=(v,fromPop)=>{m.classList.add('hidden');m.innerHTML='';m.onclick=null;modalClose=null;
+      if(!fromPop&&history.state&&history.state.modal){ignorePop=true;history.back();}
+      res(v);};
+    modalClose=fromPop=>close(null,fromPop);
+    m.onclick=e=>{if(e.target===m){close(null);return;}const b=e.target.closest('button[data-i]');if(b)close(opts[+b.dataset.i].k);};
+  });
+}
+const confirmAsk=(title,text,yes,cls='pri')=>choose(title,text,[{k:true,l:yes,cls},{k:false,l:'Отмена',cls:'cnl'}]);
+
+/* =====================================================================
+   2. ХРАНИЛИЩЕ (локально, в браузере). Структура версионируется: SCHEMA.
+   Ключи начинаются с «razminka.» — у других приложений домена свои ключи.
+   ===================================================================== */
+const Store=(()=>{
+  const KEY='razminka.data',BAK='razminka.data.bak';
+  const SCHEMA=1;
+  // миграции: MIGRATIONS[n] переводит данные из версии n в n+1
+  const MIGRATIONS={};
+  let data=null,readOnly=false;
+  const fresh=()=>({schema:SCHEMA,results:[],settings:{mode:'train',levels:{}},meta:{created:new Date().toISOString(),lastExport:null,lastImport:null}});
+  function normalize(d){
+    const f=fresh();
+    d.results=Array.isArray(d.results)?d.results:[];
+    d.settings=Object.assign(f.settings,d.settings&&typeof d.settings==='object'?d.settings:{});
+    if(!d.settings.levels||typeof d.settings.levels!=='object')d.settings.levels={};
+    d.meta=Object.assign(f.meta,d.meta&&typeof d.meta==='object'?d.meta:{});
+    return d;}
+  function migrate(d){
+    let n=+d.schema||1;
+    while(n<SCHEMA){if(!MIGRATIONS[n])throw new Error('нет перехода со схемы '+n);d=MIGRATIONS[n](d);n++;d.schema=n;}
+    return d;}
+  function load(){
+    let raw=null;try{raw=localStorage.getItem(KEY);}catch(e){}
+    if(!raw){data=fresh();return;}
+    let d;try{d=JSON.parse(raw);}catch(e){
+      // повреждённые данные не затираем: сохраняем копию и начинаем заново
+      try{localStorage.setItem(BAK,raw);}catch(_){}data=fresh();save();setTimeout(()=>toast('Данные повреждены, копия сохранена. Статистика начата заново',5000),500);return;}
+    if((+d.schema||1)>SCHEMA){
+      // данные от более новой версии — не трогаем, работаем только на чтение
+      readOnly=true;data=normalize(d);setTimeout(()=>toast('Данные созданы более новой версией приложения. Обновите приложение — запись отключена',6000),500);return;}
+    if((+d.schema||1)<SCHEMA){try{localStorage.setItem(BAK,raw);}catch(_){}d=migrate(d);}
+    data=normalize(d);data.schema=SCHEMA;}
+  function save(){
+    if(readOnly)return false;
+    try{localStorage.setItem(KEY,JSON.stringify(data));return true;}
+    catch(e){toast('Не удалось сохранить данные (нет места?)',4000);return false;}}
+  return{SCHEMA,migrate,normalize,load,save,get data(){return data;},get readOnly(){return readOnly;},
+    setData(d){data=normalize(d);data.schema=SCHEMA;return save();},
+    settings(){return data.settings;}};
+})();
+
+/* =====================================================================
+   3. ЯДРО: разделы и реестр упражнений
+   Упражнение — подключаемый модуль. Добавляется вызовом Registry.register({...}):
+     id        — уникальный код (латиницей), title — название, section — код раздела
+     desc      — краткое описание
+     modes     — ['train','rest'] — какие режимы поддерживает
+     levels    — [{id:'1',name:'Лёгкий',hint:'…'}, …] — уровни сложности
+     score     — {unit:'…', better:'high'|'low'} — что такое очки и что лучше
+     start(ctx)— запуск; ctx: root, mode, level, train, setInfo(), startTimer(), elapsed(), finish({score,timeMs,extra})
+     stop()    — остановка (убрать таймеры и обработчики)
+   ===================================================================== */
+const SECTIONS=[
+  {id:'attention',name:'Внимание',color:'#e3893b',desc:'Сосредоточенность и скорость поиска',planned:['Таблица Шульте','Найди отличия','Струп-тест']},
+  {id:'memory',name:'Память',color:'#8a5cd6',desc:'Удержание и воспроизведение',planned:['Пары (мемори)','Запомни последовательность','N-back']},
+  {id:'count',name:'Счёт',color:'#1f9a8a',desc:'Устный счёт и прикидка',planned:['Счёт в уме на время','Прикидка и проценты','2048']},
+  {id:'logic',name:'Логика',color:'#1f6feb',desc:'Рассуждение и выводы',planned:['Судоку','Японские кроссворды','Логические задачи с таблицей']},
+  {id:'space',name:'Пространственное мышление',color:'#c2477a',desc:'Фигуры, виды, развёртки',planned:['Пятнашки','Вращение фигур','Развёртка куба','Три вида детали','Танграм']},
+  {id:'reaction',name:'Реакция',color:'#d93a3a',desc:'Быстрота отклика',planned:['Время реакции','Ловля целей']},
+  {id:'rest',name:'Отдых',color:'#3a9a52',desc:'Разгрузка без спешки',planned:['Дыхание по ритму','Спокойные игры без таймера','Фоновые звуки с таймером']},
+];
+const secById=id=>SECTIONS.find(s=>s.id===id);
+const MODES={train:'Тренировка',rest:'Отдых'};
+
+const Registry=(()=>{
+  const list=[];
+  function register(m){
+    const err=[];
+    if(!m||typeof m.id!=='string'||!/^[a-z0-9_-]+$/.test(m.id))err.push('id');
+    if(list.some(x=>x.id===m.id))err.push('повтор id');
+    if(!m.title)err.push('title');
+    if(!secById(m.section))err.push('section');
+    if(!Array.isArray(m.modes)||!m.modes.length||m.modes.some(x=>!MODES[x]))err.push('modes');
+    if(!Array.isArray(m.levels)||!m.levels.length)err.push('levels');
+    if(typeof m.start!=='function'||typeof m.stop!=='function')err.push('start/stop');
+    if(!m.score)m.score={unit:'очков',better:'high'};
+    if(err.length){console.error('Упражнение не подключено:',m&&m.id,err.join(', '));return false;}
+    m.levels.forEach(l=>l.id=String(l.id));
+    list.push(m);return true;}
+  return{register,all:()=>list.slice(),get:id=>list.find(x=>x.id===id),bySection:s=>list.filter(x=>x.section===s)};
+})();
+
+/* =====================================================================
+   4. СТАТИСТИКА. Единый формат результата:
+   {id, ex, section, mode, date, level, score, timeMs, extra}
+   В режиме «Отдых» score и timeMs = null — записывается только факт занятия.
+   ===================================================================== */
+const Stats=(()=>{
+  function make(mod,mode,level,r){
+    const rest=mode==='rest';
+    return{id:uid(),ex:mod.id,section:mod.section,mode,date:new Date().toISOString(),level:String(level.id),
+      score:rest||r.score==null?null:Math.round(r.score*100)/100,
+      timeMs:rest||r.timeMs==null?null:Math.round(r.timeMs),
+      extra:r.extra&&typeof r.extra==='object'?r.extra:null};}
+  // проверка одной записи (для импорта и на всякий случай)
+  function valid(r){
+    return r&&typeof r==='object'&&typeof r.id==='string'&&typeof r.ex==='string'&&typeof r.section==='string'
+      &&MODES[r.mode]&&typeof r.date==='string'&&!isNaN(new Date(r.date))
+      &&(r.score===null||typeof r.score==='number'&&isFinite(r.score))
+      &&(r.timeMs===null||typeof r.timeMs==='number'&&isFinite(r.timeMs))
+      &&r.level!=null;}
+  function add(rec){Store.data.results.push(rec);return Store.save();}
+  const all=()=>Store.data.results;
+  function best(exId,levelId,excludeId){
+    const mod=Registry.get(exId);const low=mod&&mod.score.better==='low';
+    let b=null;for(const r of all()){if(r.ex!==exId||r.mode!=='train'||r.level!==String(levelId)||r.score==null||r.id===excludeId)continue;
+      if(b==null||(low?r.score<b.score:r.score>b.score))b=r;}
+    return b;}
+  function sectionSummary(secId){
+    const rs=all().filter(r=>r.section===secId);
+    let last=null;for(const r of rs)if(!last||r.date>last)last=r.date;
+    return{count:rs.length,train:rs.filter(r=>r.mode==='train').length,rest:rs.filter(r=>r.mode==='rest').length,last};}
+  const recent=n=>all().slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,n);
+  return{make,valid,add,all,best,sectionSummary,recent};
+})();
+
+/* =====================================================================
+   5. УПРАЖНЕНИЯ
+   ===================================================================== */
+
+/* --- Тестовое упражнение-заглушка (этап 0): проверка пути «запуск → результат → статистика».
+       Будет удалено, когда появятся настоящие упражнения. --- */
+Registry.register((()=>{
+  let root=null,ctx=null,btn=null,hits=0,total=0;
+  function place(){
+    const w=root.clientWidth,h=root.clientHeight,s=84;
+    btn.style.left=Math.round(8+Math.random()*Math.max(0,w-s-16))+'px';
+    btn.style.top=Math.round(8+Math.random()*Math.max(0,h-s-16))+'px';}
+  function hit(e){
+    e.preventDefault();if(!ctx)return;
+    hits++;ctx.setInfo(`Попаданий: ${hits} из ${total}`);
+    if(hits>=total){const t=ctx.elapsed();ctx.finish({score:total*60000/t,timeMs:t,extra:{hits}});return;}
+    place();}
+  return{
+    id:'stub',title:'Проверка (тест)',section:'reaction',test:true,
+    desc:'Временное упражнение для проверки приложения: нажимайте на круг, пока не наберёте нужное число попаданий.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'5 попаданий'},{id:'2',name:'Средний',hint:'10 попаданий'},{id:'3',name:'Сложный',hint:'15 попаданий'}],
+    score:{unit:'попаданий в минуту',better:'high'},
+    start(c){
+      ctx=c;root=c.root;hits=0;total={1:5,2:10,3:15}[c.level.id]||5;
+      btn=document.createElement('button');btn.id='stubTarget';btn.setAttribute('aria-label','Цель');
+      btn.style.cssText='position:absolute;width:84px;height:84px;border-radius:50%;background:#d93a3a;box-shadow:0 2px 6px rgba(0,0,0,.3)';
+      btn.addEventListener('pointerdown',hit);
+      root.appendChild(btn);c.setInfo(`Попаданий: 0 из ${total}`);
+      place();c.startTimer();},
+    stop(){if(btn)btn.removeEventListener('pointerdown',hit);btn=null;ctx=null;root=null;}
+  };
+})());
+
+/* =====================================================================
+   6. ИНТЕРФЕЙС: экраны и переходы (кнопка «Назад» телефона работает как стрелка в шапке)
+   ===================================================================== */
+const view=$('#view');
+let running=null; // запущенное упражнение
+
+function go(s,p,extra){const st=Object.assign({s,p},extra||{});history.pushState(st,'');render(st);}
+addEventListener('popstate',e=>{
+  if(ignorePop){ignorePop=false;return;}
+  if(modalClose){modalClose(true);return;}
+  render(e.state||{s:'home'});
+});
+$('#backBtn').onclick=()=>history.back();
+
+function stopRunning(){
+  if(!running)return;
+  running.ctx._dead=true;clearInterval(running.tick);
+  try{running.mod.stop();}catch(e){console.error(e);}
+  running=null;}
+
+function render(st){
+  stopRunning();
+  if(!st||st.modal)st={s:'home'};
+  $('#backBtn').classList.toggle('hidden',st.s==='home');
+  scrollTo(0,0);
+  if(st.s==='section')return renderSection(st.p);
+  if(st.s==='ex')return renderExIntro(st.p);
+  if(st.s==='stats')return renderStats();
+  return renderHome();}
+
+function renderHome(){
+  view.innerHTML=`
+    <button class="big off" id="warmBtn">Разминка на 5 минут</button>
+    ${SECTIONS.map(s=>{const n=Registry.bySection(s.id).filter(m=>!m.test).length,sm=Stats.sectionSummary(s.id);
+      return `<button class="sec" data-sec="${s.id}"><span class="dot" style="background:${s.color}"></span>
+        <span><div class="nm">${esc(s.name)}</div><div class="ds">${n?`Упражнений: ${n}`:'Упражнения скоро'}${sm.count?` · занятий: ${sm.count}`:''}</div></span>
+        <svg class="i go" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>`;}).join('')}
+    <button class="big alt" id="statsBtn">Статистика</button>`;
+  $('#warmBtn').onclick=()=>toast('«Разминка на 5 минут» появится на этапе 2');
+  $('#statsBtn').onclick=()=>go('stats');
+  view.querySelectorAll('[data-sec]').forEach(b=>b.onclick=()=>go('section',b.dataset.sec));}
+
+function renderSection(id){
+  const s=secById(id);if(!s)return renderHome();
+  const mods=Registry.bySection(id);
+  const done=new Set(mods.map(m=>m.title));
+  view.innerHTML=`<h2>${esc(s.name)}</h2>
+    ${mods.map(m=>{const c=Stats.all().filter(r=>r.ex===m.id).length;
+      return `<button class="exl" data-ex="${m.id}"><div class="nm">${esc(m.title)}</div><div class="small muted">${esc(m.desc)}</div>${c?`<div class="small muted">Занятий: ${c}</div>`:''}</button>`;}).join('')}
+    ${s.planned.filter(t=>!done.has(t)).length?`<div class="lbl">Будут добавлены</div>`+s.planned.filter(t=>!done.has(t)).map(t=>`<div class="soon"><span>${esc(t)}</span><span class="small">скоро</span></div>`).join(''):''}`;
+  view.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>go('ex',b.dataset.ex));}
+
+function curMode(mod){const m=Store.settings().mode;return mod.modes.includes(m)?m:mod.modes[0];}
+function curLevel(mod){const id=Store.settings().levels[mod.id];return mod.levels.find(l=>l.id===id)||mod.levels[0];}
+
+function renderExIntro(id){
+  const mod=Registry.get(id);if(!mod)return renderHome();
+  const mode=curMode(mod),level=curLevel(mod);
+  const b=Stats.best(mod.id,level.id);
+  view.innerHTML=`<h2>${esc(mod.title)}</h2>
+    <div class="card small">${esc(mod.desc)}</div>
+    <div class="lbl">Режим</div>
+    <div class="seg">${mod.modes.map(m=>`<button data-mode="${m}" class="${m===mode?'on':''}">${MODES[m]}</button>`).join('')}</div>
+    <div class="small muted" style="margin:-4px 4px 12px">${mode==='train'?'Время и очки идут в статистику.':'Без таймера и очков — учитывается только факт занятия.'}</div>
+    <div class="lbl">Уровень сложности</div>
+    <div class="lvls">${mod.levels.map(l=>`<button class="lvl ${l.id===level.id?'on':''}" data-lvl="${esc(l.id)}"><b>${esc(l.name)}</b>${l.hint?`<span>${esc(l.hint)}</span>`:''}</button>`).join('')}</div>
+    ${mode==='train'?`<div class="small muted" style="margin:0 4px 12px">Лучший результат на этом уровне: ${b?`<b>${fmtNum(b.score)}</b> ${esc(mod.score.unit)}`:'ещё нет'}</div>`:''}
+    <button class="big" id="startBtn">Начать</button>`;
+  view.querySelectorAll('[data-mode]').forEach(x=>x.onclick=()=>{Store.settings().mode=x.dataset.mode;Store.save();renderExIntro(id);});
+  view.querySelectorAll('[data-lvl]').forEach(x=>x.onclick=()=>{Store.settings().levels[mod.id]=x.dataset.lvl;Store.save();renderExIntro(id);});
+  $('#startBtn').onclick=()=>{history.pushState({s:'ex',p:id,run:1},'');runEx(mod,mode,level);};}
+
+const fmtNum=n=>n==null?'—':(Math.round(n*10)/10).toString().replace('.',',');
+
+function runEx(mod,mode,level){
+  stopRunning();
+  $('#backBtn').classList.remove('hidden');
+  const train=mode==='train';
+  view.innerHTML=`
+    <div class="strip"><span id="exInfo"></span>${train?'<span class="tm" id="exTime">00:00.0</span>':`<span class="tag rest">Отдых</span>`}</div>
+    <div class="exroot" id="exRoot"></div>
+    <button class="big alt" id="exStop">Завершить</button>`;
+  let t0=null,tStop=null;
+  const ctx={root:$('#exRoot'),mode,level,train,_dead:false,
+    setInfo:t=>{if(!ctx._dead)$('#exInfo').textContent=t;},
+    startTimer:()=>{t0=performance.now();tStop=null;},
+    elapsed:()=>t0==null?0:((tStop??performance.now())-t0),
+    finish:r=>{
+      if(ctx._dead)return;tStop=performance.now();
+      const res=Object.assign({},r);if(res.timeMs==null&&t0!=null)res.timeMs=ctx.elapsed();
+      stopRunning();guardClicks();
+      const rec=Stats.make(mod,mode,level,res);
+      const saved=Stats.add(rec);
+      showResult(mod,mode,level,rec,saved);}};
+  running={mod,ctx,tick:train?setInterval(()=>{const e=$('#exTime');if(e&&t0!=null)e.textContent=fmtTimer(ctx.elapsed());},100):0};
+  $('#exStop').onclick=()=>{stopRunning();history.back();};
+  try{mod.start(ctx);}catch(e){console.error(e);stopRunning();toast('Ошибка запуска упражнения');}}
+
+function showResult(mod,mode,level,rec,saved){
+  const train=mode==='train';
+  let body;
+  if(train){
+    const prev=Stats.best(mod.id,level.id,rec.id);
+    const isRec=rec.score!=null&&(!prev||(mod.score.better==='low'?rec.score<prev.score:rec.score>prev.score));
+    body=`<div class="sc">${fmtNum(rec.score)}</div><div class="un">${esc(mod.score.unit)}</div>
+      <div style="margin-top:10px">Время: <b>${fmtTime(rec.timeMs)}</b> · уровень: ${esc(level.name)}</div>
+      ${isRec?`<div class="rec">${prev?'Новый личный рекорд!':'Первый результат на этом уровне'}</div>`:`<div class="muted small" style="margin-top:8px">Лучший: ${fmtNum(prev.score)}</div>`}`;
+  }else body=`<div class="sc" style="color:var(--ok)">Готово</div><div class="un">Режим «Отдых»: занятие засчитано, без очков и времени</div>`;
+  view.innerHTML=`<h2>${esc(mod.title)}</h2><div class="card res">${body}${saved?'':'<div class="muted small" style="margin-top:8px">Результат не сохранён</div>'}</div>
+    <button class="big" id="againBtn">Ещё раз</button>
+    <button class="big alt" id="lvlBtn">Сменить уровень или режим</button>
+    <button class="big alt" id="homeBtn">К разделам</button>`;
+  $('#againBtn').onclick=()=>runEx(mod,mode,level);
+  $('#lvlBtn').onclick=()=>history.back();
+  $('#homeBtn').onclick=goHome;}
+// Защита от «хвостового» клика: упражнение завершается по касанию (pointerdown), экран меняется,
+// а клик того же касания мог бы нажать кнопку на новом экране. Клики сразу после смены экрана игнорируются.
+let clickGuardUntil=0;
+const guardClicks=(ms=450)=>{clickGuardUntil=performance.now()+ms;};
+document.addEventListener('click',e=>{if(performance.now()<clickGuardUntil){e.stopPropagation();e.preventDefault();}},true);
+function goHome(){history.pushState({s:'home'},'');render({s:'home'});}
+
+function renderStats(){
+  const rs=Stats.recent(30);
+  view.innerHTML=`<h2>Статистика</h2>
+    <div class="card"><table class="st">${SECTIONS.map(s=>{const sm=Stats.sectionSummary(s.id);
+      return `<tr><td><span class="dot" style="display:inline-block;width:10px;height:10px;border-radius:5px;background:${s.color}"></span> ${esc(s.name)}</td>
+        <td style="text-align:right">${sm.count?`<b>${sm.count}</b><div class="muted small" style="white-space:nowrap">трен. ${sm.train} · отдых ${sm.rest}</div><div class="muted small" style="white-space:nowrap">${fmtDate(sm.last)}</div>`:'<span class="muted">—</span>'}</td></tr>`;}).join('')}</table></div>
+    <div class="lbl">Последние занятия</div>
+    ${rs.length?`<div class="card"><table class="st">${rs.map(r=>{const m=Registry.get(r.ex),lv=m&&m.levels.find(l=>l.id===r.level);
+      return `<tr><td>${esc(m?m.title:r.ex)}<div class="muted small">${fmtDate(r.date)} · ${esc(lv?lv.name:'ур. '+r.level)}</div></td>
+        <td style="text-align:right">${r.mode==='rest'?'<span class="tag rest">Отдых</span>':`<b>${fmtNum(r.score)}</b><div class="muted small">${fmtTime(r.timeMs)}</div>`}</td></tr>`;}).join('')}</table></div>`
+      :'<div class="card muted">Пока нет занятий.</div>'}
+    <div class="small muted" style="margin:8px 4px">Динамика и лучшие результаты по навыкам появятся на этапе 2.</div>`;}
+
+/* =====================================================================
+   7. ЭКСПОРТ И ИМПОРТ статистики (файл .json)
+   ===================================================================== */
+function exportStats(){
+  const d=Store.data;
+  const file={app:APP_ID,kind:'stats',schema:Store.SCHEMA,appVersion:APP_VERSION,exported:new Date().toISOString(),
+    results:d.results,settings:d.settings};
+  const blob=new Blob([JSON.stringify(file,null,1)],{type:'application/json'});
+  const a=document.createElement('a');const t=new Date();
+  a.href=URL.createObjectURL(blob);a.download=`razminka-statistika-${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}.json`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  d.meta.lastExport=t.toISOString();Store.save();
+  toast(`Сохранено занятий: ${d.results.length}. Файл в «Загрузках»`,4000);}
+
+// разбор файла: возвращает {results, settings, skipped} или {error}
+function parseImport(text){
+  let f;try{f=JSON.parse(text);}catch(e){return{error:'Это не файл статистики (не читается как JSON).'};}
+  if(!f||f.app!==APP_ID||f.kind!=='stats')return{error:'Это не файл статистики «Разминки для головы».'};
+  const sch=+f.schema;
+  if(!Number.isInteger(sch)||sch<1)return{error:'В файле не указана версия формата.'};
+  if(sch>Store.SCHEMA)return{error:`Файл сохранён более новой версией приложения (формат ${sch}). Сначала обновите приложение.`};
+  if(!Array.isArray(f.results))return{error:'В файле нет списка занятий.'};
+  let d={schema:sch,results:f.results,settings:f.settings||{}};
+  try{d=Store.migrate(d);}catch(e){return{error:'Не удалось перевести файл в текущий формат.'};}
+  const ok=d.results.filter(Stats.valid);
+  return{results:ok,settings:d.settings,skipped:d.results.length-ok.length};}
+
+async function importStats(text){
+  if(Store.readOnly){toast('Запись отключена: обновите приложение',4000);return;}
+  const p=parseImport(text);
+  if(p.error){await choose('Импорт невозможен',esc(p.error),[{k:1,l:'Понятно',cls:'pri'}]);return;}
+  const cur=Store.data.results,have=new Set(cur.map(r=>r.id));
+  const newOnes=p.results.filter(r=>!have.has(r.id)).length;
+  const k=await choose('Загрузить статистику',
+    `В файле занятий: <b>${p.results.length}</b>${p.skipped?` (пропущено повреждённых: ${p.skipped})`:''}.<br>Сейчас в приложении: <b>${cur.length}</b>. Новых из файла: <b>${newOnes}</b>.`,
+    [{k:'merge',l:'Объединить (добавить новые)',cls:'pri'},{k:'replace',l:'Заменить всё содержимым файла',cls:'dng'},{k:null,l:'Отмена',cls:'cnl'}]);
+  if(!k)return;
+  if(k==='replace'&&!await confirmAsk('Заменить статистику?',`Текущие ${cur.length} занятий будут удалены и заменены данными из файла.`,'Заменить','pri dng'))return;
+  const d=Store.data;
+  d.results=k==='replace'?p.results.slice():cur.concat(p.results.filter(r=>!have.has(r.id)));
+  d.meta.lastImport=new Date().toISOString();
+  if(Store.save()){toast(k==='replace'?`Загружено занятий: ${d.results.length}`:`Добавлено занятий: ${newOnes}`,3500);render(history.state);}}
+
+$('#fileIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{await importStats(await f.text());}catch(err){toast('Не удалось прочитать файл');}};
+
+/* =====================================================================
+   8. МЕНЮ и ОБНОВЛЕНИЕ PWA (как в «Размерах на фото»)
+   ===================================================================== */
+$('#menuBtn').onclick=async()=>{
+  const m=Store.data.meta;
+  const k=await choose('Меню',
+    `Версия ${APP_VERSION} от ${APP_DATE}<br>Занятий в статистике: ${Store.data.results.length}<br>Последнее сохранение в файл: ${m.lastExport?fmtDate(m.lastExport):'—'}`,
+    [{k:'st',l:'Статистика'},{k:'ex',l:'Сохранить статистику в файл'},{k:'im',l:'Загрузить статистику из файла'},{k:'clr',l:'Очистить статистику',cls:'dng'},{k:'up',l:'Проверить обновления'},{k:null,l:'Закрыть',cls:'cnl'}]);
+  if(k==='st'){if(!history.state||history.state.s!=='stats')go('stats');}
+  else if(k==='ex')exportStats();
+  else if(k==='im')$('#fileIn').click();
+  else if(k==='clr'){if(Store.readOnly){toast('Запись отключена: обновите приложение');return;}
+    if(await confirmAsk('Очистить статистику?','Все занятия будут удалены. Перед этим лучше сохранить статистику в файл.','Удалить всё','pri dng')){
+      Store.data.results=[];Store.save();toast('Статистика очищена');render(history.state);}}
+  else if(k==='up')checkUpdate();
+};
+
+let swReg=null;
+function showUpd(){$('#updBar').classList.remove('hidden');}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+  const hadCtrl=!!navigator.serviceWorker.controller;let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadCtrl||reloading)return;reloading=true;location.reload();});
+  navigator.serviceWorker.register('sw.js').then(reg=>{swReg=reg;
+    if(reg.waiting&&navigator.serviceWorker.controller)showUpd();
+    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
+      w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpd();});});
+  }).catch(()=>{});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&swReg)swReg.update().catch(()=>{});});
+}
+async function checkUpdate(){
+  if(!swReg){toast('Обновления доступны только в установленной версии');return;}
+  if(swReg.waiting){showUpd();return;}
+  toast('Проверка…');try{await swReg.update();}catch(e){toast('Нет связи с сервером');return;}
+  setTimeout(()=>{if(swReg.waiting||swReg.installing)showUpd();else toast(`Установлена последняя версия (${APP_VERSION})`);},1500);}
+$('#updBtn').onclick=()=>{stopRunning();const w=swReg&&swReg.waiting;if(w)w.postMessage('SKIP_WAITING');else location.reload();};
+
+/* =====================================================================
+   ЗАПУСК
+   ===================================================================== */
+Store.load();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+{const st=history.state;const start=st&&!st.modal?st:{s:'home'};history.replaceState(start,'');render(start);}
+</script>
+</body>
+</html>
