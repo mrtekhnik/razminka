@@ -180,7 +180,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.11',APP_DATE='17.11.2026';
+const APP_VERSION='0.12',APP_DATE='17.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -628,13 +628,13 @@ Registry.register((()=>{
       else if(notes[i])el.innerHTML='<span class="nt">'+[1,2,3,4,5,6,7,8,9].map(d=>`<i>${notes[i]&(1<<d)?d:''}</i>`).join('')+'</span>';
       else el.textContent='';}
     box.querySelector('[data-k="note"]').classList.toggle('on',noteMode);
-    for(let d=1;d<=9;d++)box.querySelector(`.sd-dg [data-k="${d}"]`).classList.toggle('used',val.filter((v,i)=>v===d&&v===sol[i]).length>=9);}
+    for(let d=1;d<=9;d++)box.querySelector(`.sd-dg [data-k="${d}"]`).classList.toggle('used',!!c.options.fade&&val.filter((v,i)=>v===d&&v===sol[i]).length>=9);}
   function put(d){
     if(sel<0||puz[sel])return;
     if(c.options.lock&&val[sel]&&val[sel]===sol[sel])return;   // верная цифра закреплена
     if(d===0){val[sel]=0;notes[sel]=0;draw();info();return;}
     if(noteMode){if(!val[sel]){notes[sel]^=1<<d;draw();}return;}
-    if(val[sel]===d)return;
+    if(val[sel]===d){val[sel]=0;draw();info();return;}   // та же цифра ещё раз — стереть (как на sudoku.com)
     val[sel]=d;notes[sel]=0;
     if(d!==sol[sel])errs++;
     else for(let i=0;i<81;i++)if(RC[i][0]===RC[sel][0]||RC[i][1]===RC[sel][1]||RC[i][2]===RC[sel][2])notes[i]&=~(1<<d); // убрать заметку с этой цифрой рядом
@@ -657,13 +657,14 @@ Registry.register((()=>{
     else if(e.key==='n'||e.key==='т'){noteMode=!noteMode;draw();}}
   return{
     id:'sudoku',title:'Судоку',section:'logic',
-    desc:'Заполните клетки цифрами 1–9 так, чтобы в каждой строке, столбце и квадрате 3×3 все цифры были разными. Нажмите клетку, затем цифру. «Заметки» — мелкие пометки для себя.',
+    desc:'Заполните клетки цифрами 1–9 так, чтобы в каждой строке, столбце и квадрате 3×3 все цифры были разными. Нажмите клетку, затем цифру; та же цифра ещё раз — стереть. «Заметки» — мелкие пометки для себя.',
     modes:['train','rest'],
     levels:[{id:'1',name:'Лёгкий',hint:'38 открытых цифр'},{id:'2',name:'Средний',hint:'32 открытые цифры'},{id:'3',name:'Сложный',hint:'28 открытых цифр'},{id:'4',name:'Эксперт',hint:'около 25 открытых цифр'}],
     score:{unit:'с',better:'low'},
     options:[{id:'limit',name:'Лимит ошибок',hint:'Партия заканчивается после стольких ошибок (только в «Тренировке»)',type:'choice',
                choices:[{v:0,l:'Нет'},{v:3,l:'3'},{v:5,l:'5'},{v:10,l:'10'}],def:3},
-             {id:'lock',name:'Закреплять верные цифры',hint:'Верно поставленную цифру нельзя изменить или стереть (как на sudoku.com)',type:'toggle',def:false}],
+             {id:'lock',name:'Закреплять верные цифры',hint:'Верно поставленную цифру нельзя изменить или стереть (как на sudoku.com)',type:'toggle',def:false},
+             {id:'fade',name:'Бледнеть расставленным цифрам',hint:'Цифра на кнопке бледнеет, когда все 9 таких уже верно стоят на поле',type:'toggle',def:true}],
     effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая кнопка цифры на мгновение подсвечивается'},
              {id:'area',name:'Подсветка строки, столбца и квадрата',hint:'Для выбранной клетки'},
              {id:'same',name:'Подсветка одинаковых цифр',hint:'Все такие же цифры, как в выбранной клетке'},
