@@ -196,7 +196,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.14',APP_DATE='17.11.2026';
+const APP_VERSION='0.15',APP_DATE='20.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -844,16 +844,24 @@ function fromHist(h){
   if(h.base)return{scr:{s:'home'},d:0};
   if(h.s)return{scr:h.run?{s:'run',p:h.p}:{s:h.s,p:h.p},d:depthOf(h.run?{s:'run'}:h)};
   return null;}
+/* Журнал переходов (меню → «Журнал переходов»): последние 60 событий истории — чтобы по скриншоту
+   с телефона было видно, что происходит с кнопкой «Назад». act: 1-я цифра — касание сейчас, 2-я — было ли касание вообще. */
+const NavLog=(()=>{const K='razminka.navlog';let a=[];try{a=JSON.parse(localStorage.getItem(K)||'[]');if(!Array.isArray(a))a=[];}catch(e){a=[];}
+  function add(ev){try{const ua=navigator.userActivation;
+    a.push({t:new Date().toTimeString().slice(0,8),ev,d:curD,s:cur&&cur.s,hl:history.length,act:ua?(ua.isActive?'1':'0')+(ua.hasBeenActive?'1':'0'):'-',st:JSON.stringify(history.state||null).slice(0,50)});
+    if(a.length>60)a=a.slice(-60);localStorage.setItem(K,JSON.stringify(a));}catch(e){}}
+  return{add,list:()=>a.slice(),clear(){a=[];try{localStorage.removeItem(K);}catch(e){}}};})();
+// Переход вперёд — всегда по нажатию пользователя, поэтому всегда новая запись в истории
 async function go(st){
   await histSettled();
-  if(activeTap()){curD++;history.pushState(appState(st,curD),'');}
-  else history.replaceState(appState(st,curD),'');     // без касания новую запись не добавляем
-  cur=st;show(st);}
-function goBack(){if(modalClose){modalClose();return;}history.back();}
-function goHome(){if(curD>0)history.go(-curD);else{cur={s:'home'};show(cur);}}
+  curD++;history.pushState(appState(st,curD),'');
+  cur=st;NavLog.add('вперёд → '+st.s);show(st);}
+function goBack(){if(modalClose){modalClose();return;}NavLog.add('назад (кнопка)');history.back();}
+function goHome(){NavLog.add('домой −'+curD);if(curD>0)history.go(-curD);else{cur={s:'home'};show(cur);}}
 function refresh(){if(cur.s!=='run')show(cur);}
 addEventListener('popstate',e=>{
-  if(ownBack){ownBack.done();return;}
+  if(ownBack){NavLog.add('свой шаг назад');ownBack.done();return;}
+  NavLog.add('popstate ← '+JSON.stringify(e.state||null).slice(0,40));
   const wasModal=!!modalClose;if(modalClose)modalClose(true);
   const f=fromHist(e.state)||{scr:{s:'home'},d:0};
   const same=JSON.stringify(f.scr)===JSON.stringify(cur);
@@ -876,6 +884,7 @@ const savedOf=mod=>{const v=Store.settings().saved[mod.id];return v&&mod.save&&m
 function dropSaved(mod){if(Store.settings().saved[mod.id]){delete Store.settings().saved[mod.id];Store.save();}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')autosave();});
 addEventListener('pagehide',autosave);
+document.addEventListener('visibilitychange',()=>NavLog.add(document.visibilityState==='hidden'?'свернули':'вернулись'));
 function stopRunning(){
   if(!running)return;
   autosave();
@@ -1269,8 +1278,12 @@ $('#menuBtn').onclick=async()=>{
   const m=Store.data.meta;
   const k=await choose('Меню',
     `Версия ${APP_VERSION} от ${APP_DATE}<br>Занятий в статистике: ${Store.data.results.length}<br>Последнее сохранение в файл: ${m.lastExport?fmtDate(m.lastExport):'—'}`,
-    [{k:'st',l:'Статистика'},{k:'ex',l:'Сохранить статистику в файл'},{k:'im',l:'Загрузить статистику из файла'},{k:'clr',l:'Очистить статистику',cls:'dng'},{k:'up',l:'Проверить обновления'},{k:null,l:'Закрыть',cls:'cnl'}]);
+    [{k:'st',l:'Статистика'},{k:'log',l:'Журнал переходов'},{k:'ex',l:'Сохранить статистику в файл'},{k:'im',l:'Загрузить статистику из файла'},{k:'clr',l:'Очистить статистику',cls:'dng'},{k:'up',l:'Проверить обновления'},{k:null,l:'Закрыть',cls:'cnl'}]);
   if(k==='st'){if(cur.s!=='stats')go({s:'stats'});}
+  else if(k==='log'){const L=NavLog.list().slice(-40).reverse();
+    const k2=await choose('Журнал переходов',`<div class="small" style="font-family:monospace;font-size:12px;line-height:1.35;max-height:55vh;overflow:auto" id="navLog">${L.length?L.map(x=>esc(`${x.t} ${x.ev} | d${x.d} ${x.s} | len${x.hl} act${x.act} | ${x.st}`)).join('<br>'):'пусто'}</div>`,
+      [{k:'clr',l:'Очистить журнал',cls:'dng'},{k:null,l:'Закрыть',cls:'cnl'}]);
+    if(k2==='clr'){NavLog.clear();toast('Журнал очищен');}}
   else if(k==='ex')exportStats();
   else if(k==='im')$('#fileIn').click();
   else if(k==='clr'){if(Store.readOnly){toast('Запись отключена: обновите приложение');return;}
@@ -1305,6 +1318,7 @@ Store.load();
 // результаты тестовой заглушки этапа 0 больше не нужны
 if(!Store.readOnly&&Store.data.results.some(r=>r.ex==='stub')){Store.data.results=Store.data.results.filter(r=>r.ex!=='stub');Store.save();}
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+NavLog.add('запуск, версия '+APP_VERSION);
 {const f=fromHist(history.state);
   if(!f){history.replaceState(appState({s:'home'},0),'');cur={s:'home'};curD=0;show(cur);}
   else if(f.scr.s==='run'&&f.d>0){cur={s:'ex',p:f.scr.p};curD=f.d-1;show(cur);selfBack();}   // перезагрузка во время игры → к выбору уровня
