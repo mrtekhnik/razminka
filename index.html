@@ -152,6 +152,28 @@ main.run #exStop{min-height:48px;margin:0;flex:none}
 svg.chart{width:100%;height:auto;display:block}
 .sec.skill{align-items:flex-start}
 .sec.skill .dot{align-self:stretch}
+/* струп-тест */
+.sp{position:absolute;inset:0;display:flex;flex-direction:column}
+.sp-top{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;min-height:140px}
+.sp-t{font-size:17px;color:var(--muted);margin-bottom:10px;padding:2px 10px;border-radius:8px}
+.sp-t.alt{background:#fff3cd;color:#7a5600;font-weight:600}
+.sp-w{font-size:44px;font-weight:800;letter-spacing:1px;padding:6px 16px;border-radius:12px;text-align:center}
+.sp-w.okf{background:#d8f0df}.sp-w.badf{background:#f6d4d4}
+.sp-k{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px}
+.sp-k.n6{grid-template-columns:1fr 1fr 1fr}
+.sp-k button{min-height:62px;border-radius:12px;background:#eef2f7;font-size:18px;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.sp-k.n6 button{font-size:15px;flex-direction:column;gap:4px}
+.sp-k button i{width:22px;height:22px;border-radius:50%;flex:none}
+.sp-k button.press{background:#bcd3f7}
+@media(max-width:360px){.sp-w{font-size:36px}}
+/* запомни последовательность */
+.sq{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
+.sq-g{display:grid;gap:8px}
+.sq-c{border-radius:14px;background:#dfe5ee;touch-action:manipulation}
+.sq-c.lit{background:#f2a33a}
+.sq-c.press{background:#bcd3f7}.sq-c.okf{background:#bfe8cc}.sq-c.badf{background:#f0b4b4}
+.sq.showing .sq-c{cursor:default}
+.sq .big{width:auto;min-width:60%;margin:0}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -196,7 +218,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.15',APP_DATE='20.11.2026';
+const APP_VERSION='0.16',APP_DATE='20.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -823,6 +845,112 @@ Registry.register((()=>{
       wakeOn();document.addEventListener('visibilitychange',onVis);
       ctx.startTimer();update();tick=setInterval(update,100);},
     stop(){clearInterval(tick);document.removeEventListener('visibilitychange',onVis);try{if(wake)wake.release();}catch(e){}wake=null;box=null;c=null;}
+  };
+})());
+
+/* --- Струп-тест (Внимание). Слово — название цвета, напечатанное другим цветом.
+       Нажать кнопку ЦВЕТА БУКВ (на уровне «Переключение» иногда — значения слова).
+       Очки = время в секундах + 3 с штрафа за каждую ошибку (меньше — лучше). --- */
+Registry.register((()=>{
+  const COL=[['КРАСНЫЙ','#d93a3a'],['СИНИЙ','#1f5fd6'],['ЗЕЛЁНЫЙ','#16893f'],['ЖЁЛТЫЙ','#d9a400'],['ФИОЛЕТОВЫЙ','#8a3ad6'],['ОРАНЖЕВЫЙ','#e8730c']];
+  const LV={1:{n:4,trials:15,cong:.5},2:{n:4,trials:20,cong:0},3:{n:6,trials:25,cong:0},4:{n:4,trials:25,cong:0,sw:true}};
+  const PEN=3;
+  let c=null,box=null,cfg=null,k=0,errs=0,cur=null,lock=0,ended=false;
+  const rnd=n=>Math.floor(Math.random()*n);
+  function next(){
+    if(k>=cfg.trials){end();return;}
+    let w=rnd(cfg.n),ink;
+    if(Math.random()<cfg.cong)ink=w;else{do{ink=rnd(cfg.n);}while(ink===w);}
+    if(cur&&cur.w===w&&cur.ink===ink)return next();
+    const task=cfg.sw&&Math.random()<.35?'word':'ink';
+    cur={w,ink,task};
+    const wd=box.querySelector('.sp-w');wd.textContent=COL[w][0];wd.style.color=COL[ink][1];
+    wd.dataset.ink=ink;wd.dataset.word=w;wd.dataset.task=task;
+    box.querySelector('.sp-t').textContent=task==='ink'?'Цвет букв?':'Что написано?';
+    box.querySelector('.sp-t').classList.toggle('alt',task==='word');
+    c.setInfo(`${k+1} из ${cfg.trials}`+(c.train&&errs?` · ошибок: ${errs}`:''));}
+  function down(e){
+    const b=e.target.closest('[data-c]');if(!b||!c||ended)return;e.preventDefault();
+    if(performance.now()<lock)return;
+    if(c.effects.press)fxFlash(b,'press',120);
+    const right=+b.dataset.c===(cur.task==='ink'?cur.ink:cur.w),wd=box.querySelector('.sp-w');
+    if(right){if(c.effects.right)fxFlash(wd,'okf',250);}
+    else{errs++;if(c.effects.error)fxFlash(wd,'badf',350);lock=performance.now()+250;}
+    k++;next();}
+  function end(){if(ended)return;ended=true;const t=c.elapsed();
+    c.finish({score:t/1000+(c.train?errs*PEN:0),timeMs:t,extra:{errors:errs,trials:cfg.trials,penalty:errs*PEN}});}
+  return{
+    id:'stroop',title:'Струп-тест',section:'attention',warmup:{maxLevel:'2',min:1},
+    desc:'Слово — название цвета, но напечатано другим цветом. Нажимайте кнопку с цветом БУКВ, а не с тем, что написано. Ошибка добавляет 3 секунды.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'4 цвета, 15 слов, половина совпадает'},{id:'2',name:'Средний',hint:'4 цвета, 20 слов, цвет всегда другой'},
+            {id:'3',name:'Сложный',hint:'6 цветов, 25 слов'},{id:'4',name:'Переключение',hint:'иногда спрашивают, что написано'}],
+    score:{unit:'с (со штрафом)',short:'с',better:'low'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая кнопка на мгновение подсвечивается'},
+             {id:'right',name:'Подсветка верного ответа',hint:'Слово на мгновение подсвечивается зелёным'},
+             {id:'error',name:'Подсветка ошибки',hint:'Слово на мгновение подсвечивается красным'}],
+    summary:r=>r.extra?`Ошибок: <b>${r.extra.errors}</b>${r.extra.penalty?` · штраф ${r.extra.penalty} с`:''}`:'',
+    start(ctx){
+      c=ctx;cfg=LV[ctx.level.id]||LV[1];k=0;errs=0;cur=null;lock=0;ended=false;
+      box=document.createElement('div');box.className='sp';
+      box.innerHTML=`<div class="sp-top"><div class="sp-t"></div><div class="sp-w"></div></div>
+        <div class="sp-k n${cfg.n}">${COL.slice(0,cfg.n).map(([n,col],i)=>`<button data-c="${i}"><i style="background:${col}"></i>${n.toLowerCase()}</button>`).join('')}</div>`;
+      box.addEventListener('pointerdown',down);ctx.root.appendChild(box);ctx.startTimer();next();},
+    stop(){if(box)box.removeEventListener('pointerdown',down);box=null;c=null;}
+  };
+})());
+
+/* --- Запомни последовательность (Память). Клетки загораются по очереди — повторите порядок.
+       Каждый раунд длиннее на одну клетку. Тренировка: до первой ошибки, очки = самая длинная
+       верно повторённая последовательность (больше — лучше). Отдых: ошибка — показ ещё раз, без счёта. --- */
+Registry.register((()=>{
+  const LV={1:{n:2,ms:800},2:{n:3,ms:650},3:{n:3,ms:420},4:{n:4,ms:550}};
+  let c=null,box=null,cfg=null,seq=[],pos=0,best=0,state='',tm=[],ended=false,rounds=0;
+  const clear=()=>{tm.forEach(clearTimeout);tm=[];};
+  const later=(f,ms)=>tm.push(setTimeout(()=>{if(c)f();},ms));
+  function cells(){return box.querySelectorAll('.sq-c');}
+  function play(){
+    state='show';box.classList.add('showing');pos=0;
+    c.setInfo(`Длина: ${seq.length}`+(c.train?` · лучший: ${best}`:'')+' · смотрите');
+    let t=500;
+    seq.forEach(i=>{later(()=>cells()[i].classList.add('lit'),t);later(()=>cells()[i].classList.remove('lit'),t+cfg.ms*0.75);t+=cfg.ms;});
+    later(()=>{state='input';box.classList.remove('showing');c.setInfo(`Длина: ${seq.length}`+(c.train?` · лучший: ${best}`:'')+' · повторите');},t);}
+  function grow(){const N=cfg.n*cfg.n;let x;do{x=Math.floor(Math.random()*N);}while(seq.length&&x===seq[seq.length-1]&&N>1);seq.push(x);play();}
+  function down(e){
+    const el=e.target.closest('.sq-c');if(!el||!c||state!=='input'||ended)return;e.preventDefault();
+    const i=+el.dataset.i;
+    if(c.effects.press)fxFlash(el,'press',180);
+    if(i!==seq[pos]){
+      if(c.effects.error)fxFlash(el,'badf',400);
+      if(c.train){state='';end();return;}
+      state='';c.setInfo('Ошибка — покажу ещё раз');later(play,900);return;}
+    pos++;
+    if(pos===seq.length){best=Math.max(best,seq.length);rounds++;state='';
+      if(c.effects.right)cells().forEach(x=>fxFlash(x,'okf',300));
+      later(grow,600);}}
+  function end(){if(ended)return;ended=true;clear();c.finish({score:best,extra:{best,rounds}});}
+  return{
+    id:'sequence',title:'Запомни последовательность',section:'memory',warmup:{maxLevel:'2',min:1.5},
+    desc:'Клетки загораются по очереди. Когда показ закончится, нажмите их в том же порядке. Каждый раунд добавляет одну клетку. В тренировке — до первой ошибки.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'4 клетки, медленно'},{id:'2',name:'Средний',hint:'9 клеток'},{id:'3',name:'Быстрый',hint:'9 клеток, быстрый показ'},{id:'4',name:'Сложный',hint:'16 клеток'}],
+    score:{unit:'клеток в последовательности',short:'кл.',better:'high'},
+    effects:[{id:'press',name:'Подсветка нажатия',hint:'Нажатая клетка на мгновение подсвечивается'},
+             {id:'right',name:'Подсветка верного раунда',hint:'Поле на мгновение подсвечивается зелёным'},
+             {id:'error',name:'Подсветка ошибки',hint:'Ошибочная клетка подсвечивается красным'}],
+    summary:r=>r.extra?`Лучшая длина: <b>${r.extra.best}</b> · раундов пройдено: ${r.extra.rounds}`:'',
+    start(ctx){
+      c=ctx;cfg=LV[ctx.level.id]||LV[1];seq=[];best=0;rounds=0;ended=false;state='';
+      box=document.createElement('div');box.className='sq';
+      box.innerHTML=`<div class="sq-g" style="grid-template-columns:repeat(${cfg.n},1fr)">${[...Array(cfg.n*cfg.n)].map((_,i)=>`<button class="sq-c" data-i="${i}" aria-label="Клетка ${i+1}"></button>`).join('')}</div>
+        ${ctx.train?'':'<button class="big alt" id="sqDone">Достаточно</button>'}`;
+      box.addEventListener('pointerdown',down);ctx.root.appendChild(box);
+      const g=box.querySelector('.sq-g'),side=Math.floor(Math.min(ctx.root.clientWidth-24,ctx.root.clientHeight-(ctx.train?24:90)));
+      g.style.width=g.style.height=side+'px';
+      if(!ctx.train)box.querySelector('#sqDone').onclick=()=>end();
+      ctx.startTimer();grow();},
+    stop(){clear();if(box)box.removeEventListener('pointerdown',down);box=null;c=null;state='';},
+    _seq:()=>seq.slice()
   };
 })());
 
