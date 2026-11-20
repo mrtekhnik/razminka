@@ -174,6 +174,23 @@ svg.chart{width:100%;height:auto;display:block}
 .sq-c.press{background:#bcd3f7}.sq-c.okf{background:#bfe8cc}.sq-c.badf{background:#f0b4b4}
 .sq.showing .sq-c{cursor:default}
 .sq .big{width:auto;min-width:60%;margin:0}
+/* N-back */
+.nb{position:absolute;inset:0;display:flex;flex-direction:column;padding:8px}
+.nb-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.nb-g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nb-c{border-radius:14px;background:#dfe5ee}
+.nb-c.lit{background:#1f6feb}
+.nb-btn{min-height:76px;border-radius:14px;background:#eef2f7;border:2px solid var(--line);font-size:22px;font-weight:700;color:var(--ink);touch-action:manipulation}
+.nb-btn.on{border-color:var(--accent);color:var(--accent)}
+.nb-btn.okf{background:#bfe8cc}.nb-btn.badf{background:#f6c9c9}
+/* ловля целей */
+.ct-a{position:absolute;inset:0;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.ct-a.badf{background:#fbe3e3}
+.ct-t{position:absolute;border-radius:50%;background:#1f6feb;box-shadow:inset 0 0 0 6px rgba(255,255,255,.35)}
+.ct-t.trap{background:#d93a3a}
+.ct-hit{position:absolute;border-radius:50%;border:4px solid #1a8a4a;pointer-events:none}
+.ct-a.rest{bottom:80px}
+.ct-done{position:absolute;left:12px;right:12px;bottom:12px;width:auto;margin:0;z-index:2}
 /* итог */
 .res{text-align:center;padding:22px 14px}
 .res .sc{font-size:46px;font-weight:700;color:var(--accent)}
@@ -218,7 +235,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.17',APP_DATE='20.11.2026';
+const APP_VERSION='0.18',APP_DATE='21.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -952,6 +969,120 @@ Registry.register((()=>{
       ctx.startTimer();grow();},
     stop(){clear();if(box)box.removeEventListener('pointerdown',down);box=null;c=null;state='';},
     _seq:()=>seq.slice()
+  };
+})());
+
+/* --- N-back (Память). Клетка загорается раз в несколько секунд. Нажмите «Совпадает», если она там же,
+       где была N шагов назад. Очки = точность в % (верные нажатия и верные пропуски), больше — лучше. --- */
+Registry.register((()=>{
+  const LV={1:{n:1,trials:20,ms:3000},2:{n:2,trials:22,ms:3000},3:{n:3,trials:24,ms:3000},4:{n:2,trials:24,ms:2000}};
+  let c=null,box=null,cfg=null,seq=[],i=-1,pressed=false,hits=0,miss=0,fa=0,cr=0,tm=[],ended=false;
+  const clear=()=>{tm.forEach(clearTimeout);tm=[];};
+  const later=(f,ms)=>tm.push(setTimeout(()=>{if(c)f();},ms));
+  const isTarget=k=>k>=cfg.n&&seq[k]===seq[k-cfg.n];
+  function gen(){seq=[];for(let k=0;k<cfg.trials;k++){
+    if(k>=cfg.n&&Math.random()<.3)seq.push(seq[k-cfg.n]);
+    else{let x;do{x=Math.floor(Math.random()*9);}while(k>=cfg.n&&x===seq[k-cfg.n]);seq.push(x);}}}
+  function judge(){ // итог шага, когда он закончился
+    if(i<cfg.n)return;
+    const t=isTarget(i);
+    if(t&&pressed)hits++;else if(t&&!pressed){miss++;if(c.effects.error)fxFlash(box.querySelector('.nb-btn'),'badf',350);}
+    else if(!t&&!pressed)cr++;}
+  function step(){
+    if(i>=0)judge();
+    i++;pressed=false;box.querySelector('.nb-btn').classList.remove('on');
+    if(i>=cfg.trials){end();return;}
+    const cells=box.querySelectorAll('.nb-c');cells[seq[i]].classList.add('lit');
+    later(()=>cells[seq[i]].classList.remove('lit'),500);
+    c.setInfo(`Шаг ${i+1}/${cfg.trials} · ${cfg.n} назад`+(i<cfg.n?' · запоминайте':''));
+    later(step,cfg.ms);}
+  function press(){
+    if(!c||ended||i<0||pressed)return;
+    if(i<cfg.n){c.setInfo(`Шаг ${i+1}/${cfg.trials} · ещё рано сравнивать`);return;}
+    pressed=true;const b=box.querySelector('.nb-btn');b.classList.add('on');
+    if(isTarget(i)){if(c.effects.right)fxFlash(b,'okf',300);}
+    else{fa++;if(c.effects.error)fxFlash(b,'badf',350);}}
+  function down(e){if(!e.target.closest('.nb-btn'))return;e.preventDefault();press();}
+  function onKey(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();press();}}
+  function end(){if(ended)return;ended=true;clear();
+    const tot=hits+miss+fa+cr;
+    c.finish({score:tot?Math.round((hits+cr)/tot*100):0,extra:{hits,misses:miss,falseAlarms:fa,targets:hits+miss,n:cfg.n}});}
+  return{
+    id:'nback',title:'N-back',section:'memory',ownTimer:true,warmup:{maxLevel:'2',min:1.2},
+    desc:'Каждые несколько секунд загорается одна клетка. Нажмите «Совпадает», если она горит там же, где N шагов назад (на уровне «1 назад» — как в прошлый раз). Если не совпадает — ничего не нажимайте.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'1 назад',hint:'20 шагов по 3 с'},{id:'2',name:'2 назад',hint:'22 шага по 3 с'},{id:'3',name:'3 назад',hint:'24 шага по 3 с'},{id:'4',name:'2 назад, быстро',hint:'24 шага по 2 с'}],
+    score:{unit:'% точности',short:'%',better:'high'},
+    effects:[{id:'right',name:'Подсветка верного нажатия',hint:'Кнопка на мгновение подсвечивается зелёным'},
+             {id:'error',name:'Подсветка ошибки',hint:'Кнопка подсвечивается красным при лишнем нажатии или пропуске'}],
+    summary:r=>r.extra?`Совпадений найдено: <b>${r.extra.hits} из ${r.extra.targets}</b> · лишних нажатий: <b>${r.extra.falseAlarms}</b>`:'',
+    start(ctx){
+      c=ctx;cfg=LV[ctx.level.id]||LV[2];i=-1;hits=0;miss=0;fa=0;cr=0;ended=false;gen();
+      box=document.createElement('div');box.className='nb';
+      box.innerHTML=`<div class="nb-wrap"><div class="nb-g">${[...Array(9)].map((_,k)=>`<div class="nb-c" data-i="${k}"></div>`).join('')}</div></div>
+        <button class="nb-btn">Совпадает</button>`;
+      box.addEventListener('pointerdown',down);addEventListener('keydown',onKey);ctx.root.appendChild(box);
+      const g=box.querySelector('.nb-g'),side=Math.floor(Math.min(ctx.root.clientWidth-24,ctx.root.clientHeight-110));
+      g.style.width=g.style.height=Math.max(150,side)+'px';
+      ctx.startTimer();later(step,600);},
+    stop(){clear();if(box)box.removeEventListener('pointerdown',down);removeEventListener('keydown',onKey);box=null;c=null;},
+    _state:()=>({seq:seq.slice(),i,n:cfg&&cfg.n,pressed})
+  };
+})());
+
+/* --- Ловля целей (Реакция). Круги появляются в случайных местах и исчезают — ловите их касанием.
+       Тренировка: 30 секунд, очки = пойманные цели минус пойманные «ловушки» (больше — лучше).
+       Отдых: круги не исчезают и не торопят, сколько хочется — «Достаточно». --- */
+Registry.register((()=>{
+  const DUR=30000;
+  const LV={1:{max:1,life:1500,size:72,trap:0},2:{max:2,life:1150,size:62,trap:0},3:{max:3,life:850,size:54,trap:0},4:{max:2,life:1150,size:62,trap:.3}};
+  let c=null,root=null,cfg=null,tg=[],hits=0,miss=0,mis=0,traps=0,tm=[],tick=0,ended=false,area=null;
+  const clear=()=>{tm.forEach(clearTimeout);tm=[];};
+  function spawn(){
+    if(!c||ended||tg.length>=cfg.max)return;
+    const s=cfg.size,W=area.clientWidth-s-8,H=area.clientHeight-s-8;let x,y,ok=false;
+    for(let k=0;k<12&&!ok;k++){x=4+Math.random()*Math.max(1,W);y=4+Math.random()*Math.max(1,H);
+      ok=tg.every(t=>Math.hypot(t.x-x,t.y-y)>s*1.3);}
+    const trap=c.train&&Math.random()<cfg.trap;
+    const el=document.createElement('div');el.className='ct-t'+(trap?' trap':'');
+    el.style.cssText=`left:${x}px;top:${y}px;width:${s}px;height:${s}px`;
+    const t={el,x,y,trap};tg.push(t);area.appendChild(el);
+    if(c.train)t.to=setTimeout(()=>{if(!c)return;remove(t);if(!trap)miss++;info();},cfg.life);}
+  function remove(t){clearTimeout(t.to);t.el.remove();tg=tg.filter(x=>x!==t);}
+  function info(){if(c.train){const left=Math.max(0,Math.ceil((DUR-c.elapsed())/1000));
+      c.setInfo(`Осталось: ${left} с · поймано: ${hits}`+(traps?` · ловушек: ${traps}`:''));}
+    else c.setInfo(`Поймано: ${hits}`);}
+  function down(e){
+    if(!c||ended)return;e.preventDefault();
+    const hit=tg.find(t=>t.el===e.target||t.el.contains(e.target));
+    if(!hit){if(c.train){mis++;if(c.effects.error)fxFlash(area,'badf',200);}return;}
+    if(c.effects.press){const r=document.createElement('div');r.className='ct-hit';r.style.cssText=`left:${hit.x}px;top:${hit.y}px;width:${cfg.size}px;height:${cfg.size}px`;area.appendChild(r);setTimeout(()=>r.remove(),180);}
+    remove(hit);
+    if(hit.trap){traps++;if(c.effects.error)fxFlash(area,'badf',200);}else hits++;
+    info();
+    if(!c.train)tm.push(setTimeout(spawn,350));}
+  function end(){if(ended)return;ended=true;clear();clearInterval(tick);tg.forEach(t=>clearTimeout(t.to));
+    c.finish({score:Math.max(0,hits-traps),timeMs:c.train?DUR:undefined,extra:{hits,missed:miss,misclicks:mis,traps}});}
+  return{
+    id:'catch',title:'Ловля целей',section:'reaction',ownTimer:true,warmup:{maxLevel:'2',min:0.6},
+    desc:'Круги появляются в случайных местах и быстро исчезают — успейте коснуться. Тренировка длится 30 секунд. На уровне «Ловушки» красные круги трогать нельзя.',
+    modes:['train','rest'],
+    levels:[{id:'1',name:'Лёгкий',hint:'по одному, 1,5 с, крупные'},{id:'2',name:'Средний',hint:'до двух, 1,15 с'},{id:'3',name:'Сложный',hint:'до трёх, 0,85 с, мельче'},{id:'4',name:'Ловушки',hint:'красные круги не трогать'}],
+    score:{unit:'целей за 30 секунд',short:'цел.',better:'high'},
+    effects:[{id:'press',name:'Подсветка попадания',hint:'Место попадания на мгновение отмечается кольцом'},
+             {id:'error',name:'Подсветка промаха',hint:'Поле на мгновение подсвечивается красным при промахе или ловушке'}],
+    summary:r=>r.extra?`Поймано: <b>${r.extra.hits}</b> · упущено: ${r.extra.missed} · промахов: ${r.extra.misclicks}${r.extra.traps?` · ловушек: ${r.extra.traps}`:''}`:'',
+    start(ctx){
+      c=ctx;root=ctx.root;cfg=LV[ctx.level.id]||LV[1];tg=[];hits=0;miss=0;mis=0;traps=0;ended=false;
+      area=document.createElement('div');area.className='ct-a'+(ctx.train?'':' rest');
+      root.appendChild(area);
+      if(!ctx.train){const b=document.createElement('button');b.className='big alt ct-done';b.textContent='Достаточно';b.onclick=()=>end();root.appendChild(b);}
+      area.addEventListener('pointerdown',down);
+      ctx.startTimer();info();
+      if(ctx.train){tick=setInterval(()=>{if(!c)return;info();if(c.elapsed()>=DUR)end();},200);
+        const loop=()=>{if(!c||ended)return;spawn();tm.push(setTimeout(loop,cfg.life*0.55));};tm.push(setTimeout(loop,500));}
+      else{for(let k=0;k<cfg.max;k++)tm.push(setTimeout(spawn,400+k*300));}},
+    stop(){clear();clearInterval(tick);tg.forEach(t=>clearTimeout(t.to));if(area)area.removeEventListener('pointerdown',down);area=null;tg=[];c=null;root=null;}
   };
 })());
 
