@@ -235,7 +235,7 @@ table.st tr:first-child td{border-top:0}
 /* =====================================================================
    ВЕРСИЯ. При каждом обновлении увеличивать APP_VERSION вместе с VERSION в sw.js
    ===================================================================== */
-const APP_VERSION='0.18',APP_DATE='21.11.2026';
+const APP_VERSION='0.19',APP_DATE='21.11.2026';
 const APP_ID='razminka';
 
 /* =====================================================================
@@ -972,6 +972,19 @@ Registry.register((()=>{
   };
 })());
 
+/* Точность N-back = среднее двух долей: найденные совпадения и верно пропущенные несовпадения.
+   Ничего не нажимать — 50%, жать всегда — 50%. (До версии 0.19 считалась общая доля верных шагов,
+   и бездействие давало ~70–85%; такие записи пересчитываются при запуске — см. fixNbackScores.) */
+function nbScore(hits,miss,fa,cr){const t=hits+miss,nt=fa+cr;
+  const hr=t?hits/t:1,crr=nt?cr/nt:1;return Math.round((hr+crr)/2*100);}
+function fixNbackScores(){
+  const STEPS={1:19,2:20,3:21,4:22};let n=0;
+  for(const r of Store.data.results){
+    if(r.ex!=='nback'||r.mode!=='train'||r.score==null||!r.extra||r.extra.v===2)continue;
+    const e=r.extra,steps=e.steps||STEPS[r.level];if(!steps||e.targets==null)continue;
+    const cr=steps-e.targets-(e.falseAlarms||0);if(cr<0)continue;
+    r.score=nbScore(e.hits||0,e.misses||0,e.falseAlarms||0,cr);e.steps=steps;e.v=2;n++;}
+  if(n)Store.save();return n;}
 /* --- N-back (Память). Клетка загорается раз в несколько секунд. Нажмите «Совпадает», если она там же,
        где была N шагов назад. Очки = точность в % (верные нажатия и верные пропуски), больше — лучше. --- */
 Registry.register((()=>{
@@ -980,9 +993,14 @@ Registry.register((()=>{
   const clear=()=>{tm.forEach(clearTimeout);tm=[];};
   const later=(f,ms)=>tm.push(setTimeout(()=>{if(c)f();},ms));
   const isTarget=k=>k>=cfg.n&&seq[k]===seq[k-cfg.n];
-  function gen(){seq=[];for(let k=0;k<cfg.trials;k++){
-    if(k>=cfg.n&&Math.random()<.3)seq.push(seq[k-cfg.n]);
-    else{let x;do{x=Math.floor(Math.random()*9);}while(k>=cfg.n&&x===seq[k-cfg.n]);seq.push(x);}}}
+  // совпадений всегда ровно 30% засчитываемых шагов — подходы сравнимы между собой
+  function gen(){
+    const idx=[];for(let k=cfg.n;k<cfg.trials;k++)idx.push(k);
+    for(let k=idx.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[idx[k],idx[j]]=[idx[j],idx[k]];}
+    const tg=new Set(idx.slice(0,Math.round(.3*(cfg.trials-cfg.n))));
+    seq=[];for(let k=0;k<cfg.trials;k++){
+      if(tg.has(k))seq.push(seq[k-cfg.n]);
+      else{let x;do{x=Math.floor(Math.random()*9);}while(k>=cfg.n&&x===seq[k-cfg.n]);seq.push(x);}}}
   function judge(){ // итог шага, когда он закончился
     if(i<cfg.n)return;
     const t=isTarget(i);
@@ -1006,13 +1024,13 @@ Registry.register((()=>{
   function onKey(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();press();}}
   function end(){if(ended)return;ended=true;clear();
     const tot=hits+miss+fa+cr;
-    c.finish({score:tot?Math.round((hits+cr)/tot*100):0,extra:{hits,misses:miss,falseAlarms:fa,targets:hits+miss,n:cfg.n}});}
+    c.finish({score:nbScore(hits,miss,fa,cr),extra:{hits,misses:miss,falseAlarms:fa,targets:hits+miss,n:cfg.n,steps:tot,v:2}});}
   return{
     id:'nback',title:'N-back',section:'memory',ownTimer:true,warmup:{maxLevel:'2',min:1.2},
     desc:'Каждые несколько секунд загорается одна клетка. Нажмите «Совпадает», если она горит там же, где N шагов назад (на уровне «1 назад» — как в прошлый раз). Если не совпадает — ничего не нажимайте.',
     modes:['train','rest'],
     levels:[{id:'1',name:'1 назад',hint:'20 шагов по 3 с'},{id:'2',name:'2 назад',hint:'22 шага по 3 с'},{id:'3',name:'3 назад',hint:'24 шага по 3 с'},{id:'4',name:'2 назад, быстро',hint:'24 шага по 2 с'}],
-    score:{unit:'% точности',short:'%',better:'high'},
+    score:{unit:'% точности (50 — наугад)',short:'%',better:'high'},
     effects:[{id:'right',name:'Подсветка верного нажатия',hint:'Кнопка на мгновение подсвечивается зелёным'},
              {id:'error',name:'Подсветка ошибки',hint:'Кнопка подсвечивается красным при лишнем нажатии или пропуске'}],
     summary:r=>r.extra?`Совпадений найдено: <b>${r.extra.hits} из ${r.extra.targets}</b> · лишних нажатий: <b>${r.extra.falseAlarms}</b>`:'',
@@ -1575,6 +1593,7 @@ $('#updBtn').onclick=()=>{stopRunning();const w=swReg&&swReg.waiting;if(w)w.post
    ЗАПУСК
    ===================================================================== */
 Store.load();
+if(!Store.readOnly)fixNbackScores();
 // результаты тестовой заглушки этапа 0 больше не нужны
 if(!Store.readOnly&&Store.data.results.some(r=>r.ex==='stub')){Store.data.results=Store.data.results.filter(r=>r.ex!=='stub');Store.save();}
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
